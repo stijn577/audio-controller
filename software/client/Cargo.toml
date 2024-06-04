@@ -1,0 +1,107 @@
+[package]
+name = "client"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+# core specific libraries
+alloc-cortex-m = "0.4.4"
+cortex-m = { version = "0.7", features = ["critical-section-single-core"] }
+cortex-m-rt = "0.7"
+
+# FFI with C
+# cty = "0.2.2" 
+
+# interrupt/async runtime
+embassy-stm32 = { version = "0.1.0", features = [
+    "stm32f401cc",
+    "defmt",
+    "memory-x",
+    "time-driver-any",
+    "time",
+    "rt",
+    "exti",
+    # "low-power",
+] }
+embassy-time = { version = "0.3.0", features = [
+    "defmt",
+    "defmt-timestamp-uptime",
+    "tick-hz-32_768",
+] }
+embassy-sync = { version = "0.5.0", features = ["defmt"] }
+static_cell = "2.0.0"
+embassy-executor = { version = "0.5.0", features = [
+    "defmt",
+    "task-arena-size-32768",
+    "arch-cortex-m",
+    "executor-thread",
+    "integrated-timers",
+    "executor-interrupt",
+] }
+embassy-usb = { version = "0.1.0", features = ["defmt"] }
+# embassy-futures = { version = "0.1.0" }
+usbd-hid = "0.7.0"
+
+# logging and panic handling
+defmt = { version = "0.3.5", features = ["alloc"] }
+defmt-rtt = "0.4.0"
+panic-probe = { version = "0.3.1", features = ["print-defmt"] }
+
+# error handling
+thiserror-no-std = "2.0.2"
+
+[dependencies.shared-data]
+version = "*"
+path = ".."
+
+[dev-dependencies]
+
+# [[test]]
+# name = "tests"
+# # harness = false
+
+[[bin]]
+name = "client"
+harness = false
+# test = false
+
+# [dependencies.stm32f4xx-hal]
+# version = "*"
+# features = ["stm32f401", "rtic2", "defmt"]
+
+# [dependencies.stm32-hal2]
+# version = "1.8.0"
+# features = ["f401", "f4rt"]
+#
+# stm32-hal2 = { git = "https://github.com/David-OConnor/stm32-hal.git", branch = "main", features = [
+#     "f401",
+#     "f4rt",
+# ] }
+
+# Set the default for dependencies.
+[profile.dev]
+codegen-units = 1
+debug = true
+debug-assertions = true
+incremental = true
+# # lto = "fat"
+opt-level = "s"
+
+[profile.dev.package."*"]
+opt-level = "s"
+debug = true
+# debug-assertions = true
+
+[profile.release]
+codegen-units = 1
+incremental = true
+debug = true
+debug-assertions = true
+lto = true
+opt-level = "s"
+
+[build-dependencies]
+cc = "1.0.83"
+# cmake = "0.1.50"

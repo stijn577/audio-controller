@@ -1,0 +1,52 @@
+# Makefile for cargo using cargo make
+
+# attach probe to already running process
+[tasks.attach]
+dependencies = ["build"]
+command = "probe-rs"
+args = [
+    "attach",
+    "--chip",
+    "STM32F401CCU6",
+    "./target/thumbv7em-none-eabihf/debug/stealth577",
+]
+
+[tasks.test]
+dependencies = ["build"]
+command = "cargo"
+args = ["test", "--test", "${@}"]
+
+[tasks.tests]
+dependencies = ["build"]
+command = "cargo"
+args = ["test", "--test", "tests"]
+
+[tasks.list]
+command = "probe-rs"
+args = ["list"]
+
+# [tasks.watch]
+# command = "cargo"
+# args = ["r", "-q"]
+# watch = true
+# clear = true
+
+# [tasks.watch]
+# command = "cargo"
+# args = ["watch", "-q", "-c", "-x r"]
+
+# [tasks.rmasm]
+# command = "nu"
+# arguments = ["-c", "rm stealth577.s"]
+
+[tasks.clean_asm]
+command = "nu"
+args = ["-c", "rm ./stealt577.s"]
+
+[tasks.dump]
+dependencies = ["build"]
+command = "nu"
+args = [
+    "-c",
+    "arm-none-eabi-objdump.exe --disassemble ./target/thumbv7em-none-eabihf/debug/stealth577 | save stealth577.s -f",
+]

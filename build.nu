@@ -1,8 +1,20 @@
-def "gg run host" [] {
-    cd audio-controller-host
+
+
+def "gg server" [] {
+    cd software/server
     cargo r 
 }
 
-def "gg run client" [] {
+def "gg client" [] {
+    
+}
+
+def "gg clean all" [] {
+    cd software
+    cargo clean
+    cd client
+    cargo clean
+    cd ../server
+    cargo clean
     
 }
