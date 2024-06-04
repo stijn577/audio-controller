@@ -1,9 +1,17 @@
 use wasapi::Direction;
 
 fn main() {
-    let input = wasapi::DeviceCollection::new(&Direction::Capture).unwrap();
-    let output = wasapi::DeviceCollection::new(&Direction::Render).unwrap();
+    wasapi::initialize_mta().ok();
+    wasapi::initialize_sta().ok();
 
-    println!("{:?}", input);
-    println!("{:?}", output);
+    let input = wasapi::DeviceCollection::new(&Direction::Render).unwrap();
+    let output = wasapi::DeviceCollection::new(&Direction::Capture).unwrap();
+
+    input
+        .into_iter()
+        .for_each(|device| println!("{:?}", device.unwrap().get_friendlyname()));
+
+    output
+        .into_iter()
+        .for_each(|device| println!("{:?}", device.unwrap().get_friendlyname()));
 }
