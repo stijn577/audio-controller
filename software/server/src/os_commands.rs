@@ -8,12 +8,6 @@ pub(crate) fn controller_init() -> AudioController {
     audiocontroller
 }
 
-pub(crate) fn app_launcher(program: &str) {
-    Command::new(program)
-        .output()
-        .expect("Failed to launch application");
-}
-
 pub(crate) fn audio_control() {
     let audio_controller = controller_init();
     let sessions = unsafe { audio_controller.get_all_session_names() };
@@ -34,11 +28,11 @@ pub(crate) fn audio_control() {
     println!("🦀All processes listed! 🦀\n")
 }
 
-trait MyAudioController {
+trait _MyAudioController {
     fn session_scan(&mut self);
 }
 
-impl MyAudioController for AudioController {
+impl _MyAudioController for AudioController {
     fn session_scan(&mut self) {
         unsafe {
             self.GetSessions();

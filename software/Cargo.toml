@@ -6,5 +6,15 @@ edition = "2021"
 [dependencies]
 serde = { version = "1.0.203", default-features = false, features = ["derive"] }
 
+thiserror = "1.0.61"
+thiserror-no-std = "2.0.2"
+
+[dependencies.macros]
+version = "*"
+path = "./macros"
+
 [workspace]
-members = ["client", "server"]
+members = ["client", "macros", "server"]
+
+[features]
+std = []

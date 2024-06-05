@@ -1,7 +1,7 @@
 use anyhow::Result;
-use shared_data::{AppLaunch, Message};
+use shared_data::{AppMsg, Message};
 
 pub(crate) fn receive_message() -> Result<Message> {
     // TODO: read from usb and parse data
-    Ok(Message::AppLaunch(AppLaunch::Spotify))
+    Ok(Message::App(AppMsg::Slot0))
 }
