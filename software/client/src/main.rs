@@ -112,6 +112,7 @@ async fn main(s: Spawner) {
 
     info!("Pins set!");
 
+    #[allow(unreachable_code)]
     let write_fut = async {
         class.wait_connection().await;
         info!("USB connected!");
@@ -147,14 +148,14 @@ async fn blinky_task(mut led: Output<'static, embassy_stm32::peripherals::PC13>)
 #[derive(thiserror_no_std::Error)]
 struct Disconnected {
     #[source]
-    source: EndpointError,
+    _source: EndpointError,
 }
 
 impl From<EndpointError> for Disconnected {
     fn from(value: EndpointError) -> Self {
         match value {
             EndpointError::BufferOverflow => panic!("Buffer overflowed!"),
-            EndpointError::Disabled => Disconnected { source: value },
+            EndpointError::Disabled => Disconnected { _source: value },
         }
     }
 }

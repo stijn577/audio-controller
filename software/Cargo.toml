@@ -4,10 +4,14 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+# serialization must be supported on both ends (client and server)
 serde = { version = "1.0.203", default-features = false, features = ["derive"] }
-
-thiserror = "1.0.61"
-thiserror-no-std = "2.0.2"
+# one of these is for std, the other for no_std -> optional = true
+thiserror = { version = "1.0.61", optional = true }
+thiserror-no-std = { version = "2.0.2", optional = true }
+# these codes are only used to parse the message on the server side, so it is optional and enabled with std flag
+inputbot = { git = "https://github.com/obv-mikhail/InputBot", branch = "develop", optional = true }
+lazy_static = "1.4.0"
 
 [dependencies.macros]
 version = "*"
@@ -17,4 +21,6 @@ path = "./macros"
 members = ["client", "macros", "server"]
 
 [features]
-std = []
+default = ["std"]
+std = ["dep:thiserror", "dep:inputbot"]
+no_std = ["dep:thiserror-no-std"]

@@ -1,15 +1,13 @@
-use std::process::Command;
-
 use windows_volume_control::AudioController;
 
-pub(crate) fn controller_init() -> AudioController {
+pub(crate) fn _controller_init() -> AudioController {
     let mut audiocontroller = unsafe { AudioController::init(None) };
     audiocontroller.session_scan();
     audiocontroller
 }
 
-pub(crate) fn audio_control() {
-    let audio_controller = controller_init();
+pub(crate) fn _audio_control() {
+    let audio_controller = _controller_init();
     let sessions = unsafe { audio_controller.get_all_session_names() };
 
     let sessions = sessions
