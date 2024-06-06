@@ -41,6 +41,15 @@ embassy-time = { version = "0.3.0", features = [
 ] }
 embassy-usb = { version = "0.1.0", features = ["defmt"] }
 
+#serialization
+serde = { version = "1.0.203", default-features = false, features = [
+    "alloc",
+    "derive",
+] }
+serde_cbor = { version = "0.11.2", default-features = false, features = [
+    "alloc",
+] }
+
 # logging and panic handling
 defmt = { version = "0.3.5", features = ["alloc"] }
 defmt-rtt = "0.4.0"
@@ -55,29 +64,10 @@ path = ".."
 default-features = false
 features = ["no_std"]
 
-[dev-dependencies]
-
-# [[test]]
-# name = "tests"
-# # harness = false
-
 [[bin]]
 name = "client"
 harness = false
 # test = false
-
-# [dependencies.stm32f4xx-hal]
-# version = "*"
-# features = ["stm32f401", "rtic2", "defmt"]
-
-# [dependencies.stm32-hal2]
-# version = "1.8.0"
-# features = ["f401", "f4rt"]
-#
-# stm32-hal2 = { git = "https://github.com/David-OConnor/stm32-hal.git", branch = "main", features = [
-#     "f401",
-#     "f4rt",
-# ] }
 
 # Set the default for dependencies.
 [profile.dev]

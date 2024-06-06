@@ -2,42 +2,48 @@
 #![no_main]
 #![deny(unsafe_code)]
 #![allow(unstable_features)]
-// #![allow(unused)]
 
 extern crate alloc;
 extern crate core;
 
-// link defmt_rtt and use panic probe to print stack trace when panic! occurs
-use defmt_rtt as _;
-use panic_probe as _;
+// defining our own modules
+mod error;
+mod message;
+mod prelude;
+mod utils;
 
+use crate::utils::setup::*;
+use alloc::boxed::Box;
+use alloc::vec::Vec;
 use defmt::info;
+#[allow(unused)]
+use defmt_rtt as _;
 use embassy_executor::Spawner;
 use embassy_futures::join::join;
 use embassy_stm32::{
     bind_interrupts,
     gpio::{Level, Output, Speed},
     peripherals, rcc, usart,
-    usb_otg::{self, Driver, Instance},
+    usb_otg::{self, Driver},
     Config,
 };
+use embassy_sync::blocking_mutex::raw::NoopRawMutex;
+use embassy_sync::channel::Channel;
 use embassy_time::Timer;
 use embassy_usb::{
     class::cdc_acm::{CdcAcmClass, State},
-    driver::EndpointError,
     Builder,
 };
+use panic_probe as _;
+use shared_data::message::config_entry::ConfigEntry;
+use shared_data::message::Message;
+use shared_data::N_CONFIG_ENTRIES;
 
-// defining our own modules
-mod error;
-mod prelude;
-mod utils;
+const CONFIG_DEFAULT: ConfigEntry = ConfigEntry::Command(0, Vec::new());
+static CONFIG_ENTRIES: [ConfigEntry; N_CONFIG_ENTRIES] = [CONFIG_DEFAULT; N_CONFIG_ENTRIES];
 
-// use our own modules
-use crate::utils::setup::*;
-
+// map the peripherals that need interrupt handlers
 bind_interrupts!(
-    // map the peripherals that need interrupt handlers
     pub(crate) struct Irqs {
         USART1 => usart::InterruptHandler<peripherals::USART1>;
         USART6 => usart::InterruptHandler<peripherals::USART6>;
@@ -60,70 +66,69 @@ async fn main(s: Spawner) {
 
     info!("Basics done!");
 
-    let mut ep_out_buffer = [0u8; 256];
-    let mut config = usb_otg::Config::default();
-    config.vbus_detection = false;
+    let (mut class, mut usb) = {
+        let ep_out_buffer = Box::leak(Box::new([0u8; 256]));
+        let mut config = usb_otg::Config::default();
+        config.vbus_detection = false;
 
-    let driver = Driver::new_fs(
-        pp.USB_OTG_FS,
-        Irqs,
-        pp.PA12,
-        pp.PA11,
-        &mut ep_out_buffer,
-        config,
-    );
+        let driver = Driver::new_fs(pp.USB_OTG_FS, Irqs, pp.PA12, pp.PA11, ep_out_buffer, config);
 
-    let mut config = embassy_usb::Config::new(0xffff, 0x0000);
+        let mut config = embassy_usb::Config::new(0xffff, 0x0000);
 
-    config.manufacturer = Some("stijn577");
-    config.product = Some("audio-controller");
-    config.serial_number = Some("123456789");
+        config.manufacturer = Some("stijn577");
+        config.product = Some("audio-controller");
+        config.serial_number = Some("123456789");
 
-    config.device_class = 0xEF;
-    config.device_sub_class = 0x02;
-    config.device_protocol = 0x01;
-    config.composite_with_iads = true;
+        config.device_class = 0xEF;
+        config.device_sub_class = 0x02;
+        config.device_protocol = 0x01;
+        config.composite_with_iads = true;
 
-    let mut device_descriptor = [0; 256];
-    let mut config_descriptor = [0; 256];
-    let mut bos_descriptor = [0; 256];
-    let mut control_buf = [0; 64];
+        let device_descriptor = Box::leak(Box::new([0; 256]));
+        let config_descriptor = Box::leak(Box::new([0; 256]));
+        let bos_descriptor = Box::leak(Box::new([0; 256]));
+        let control_buf = Box::leak(Box::new([0; 64]));
 
-    let mut state = State::new();
+        let state = Box::leak(Box::new(State::new()));
 
-    let mut builder = Builder::new(
-        driver,
-        config,
-        &mut device_descriptor,
-        &mut config_descriptor,
-        &mut bos_descriptor,
-        &mut [],
-        &mut control_buf,
-    );
+        let mut builder = Builder::new(
+            driver,
+            config,
+            device_descriptor,
+            config_descriptor,
+            bos_descriptor,
+            &mut [],
+            control_buf,
+        );
 
-    let mut class = CdcAcmClass::new(&mut builder, &mut state, 64);
-
-    let mut usb = builder.build();
+        (CdcAcmClass::new(&mut builder, state, 64), builder.build())
+    };
 
     let usb_fut = usb.run();
-
     // let button = ExtiInput::new(Input::new(pp.PC13, Pull::Down), pp.EXTI13);
     let led = Output::new(pp.PC13, Level::High, Speed::Low);
 
     info!("Pins set!");
 
+    // we need to box leak to fix lifetimes
+    let usb_message_channel = Box::leak(Box::new(Channel::<NoopRawMutex, Message, 5>::new()));
+
     #[allow(unreachable_code)]
     let write_fut = async {
-        class.wait_connection().await;
-        info!("USB connected!");
-        match echo(&mut class).await {
-            Ok(_) => todo!(),
-            Err(_) => todo!(),
+        loop {
+            class.wait_connection().await;
+            info!("USB connected!");
+            match message::usb_send_message(&mut class, usb_message_channel.receiver()).await {
+                Ok(_) => todo!(),
+                Err(_) => todo!(),
+            }
+            info!("Disconnected");
         }
-        info!("Disconnected");
     };
 
     s.spawn(blinky_task(led)).ok();
+    s.spawn(message::mock_message_sender(usb_message_channel.sender()))
+        .ok();
 
     join(usb_fut, write_fut).await;
 
@@ -131,7 +136,7 @@ async fn main(s: Spawner) {
 }
 
 #[embassy_executor::task]
-async fn blinky_task(mut led: Output<'static, embassy_stm32::peripherals::PC13>) {
+async fn blinky_task(mut led: Output<'static, peripherals::PC13>) {
     loop {
         led.set_high();
         info!("LED off!");
@@ -142,32 +147,5 @@ async fn blinky_task(mut led: Output<'static, embassy_stm32::peripherals::PC13>)
         info!("LED on!");
 
         Timer::after_millis(1000).await;
-    }
-}
-
-#[derive(thiserror_no_std::Error)]
-struct Disconnected {
-    #[source]
-    _source: EndpointError,
-}
-
-impl From<EndpointError> for Disconnected {
-    fn from(value: EndpointError) -> Self {
-        match value {
-            EndpointError::BufferOverflow => panic!("Buffer overflowed!"),
-            EndpointError::Disabled => Disconnected { _source: value },
-        }
-    }
-}
-
-async fn echo<'d, T: Instance + 'd>(
-    class: &mut CdcAcmClass<'d, Driver<'d, T>>,
-) -> Result<(), Disconnected> {
-    let mut buf = [0; 64];
-    loop {
-        let n = class.read_packet(&mut buf).await?;
-        let data = &buf[..n];
-        info!("data: {:x}", data);
-        class.write_packet(data).await?;
     }
 }
