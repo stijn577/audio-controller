@@ -12,6 +12,8 @@ thiserror-no-std = { version = "2.0.2", optional = true }
 # these codes are only used to parse the message on the server side, so it is optional and enabled with std flag
 inputbot = { git = "https://github.com/obv-mikhail/InputBot", branch = "develop", optional = true }
 lazy_static = "1.4.0"
+# tokio for async fn
+tokio = { version = "1.38.0", features = ["full"], optional = true }
 
 [dependencies.macros]
 version = "*"
@@ -22,5 +24,5 @@ members = ["client", "macros", "server"]
 
 [features]
 default = ["std"]
-std = ["dep:thiserror", "dep:inputbot"]
+std = ["dep:thiserror", "dep:inputbot", "dep:tokio"]
 no_std = ["dep:thiserror-no-std"]

@@ -1180,6 +1180,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "shared-data",
+ "thiserror",
  "tokio",
  "windows-volume-control",
 ]
@@ -1194,6 +1195,7 @@ dependencies = [
  "serde",
  "thiserror",
  "thiserror-no-std",
+ "tokio",
 ]
 
 [[package]]
