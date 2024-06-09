@@ -12,12 +12,11 @@ mod message;
 mod prelude;
 mod utils;
 
-use crate::utils::setup::*;
-use alloc::boxed::Box;
-use alloc::vec::Vec;
-use defmt::info;
-#[allow(unused)]
 use defmt_rtt as _;
+use panic_probe as _;
+
+use crate::utils::setup::*;
+use defmt::info;
 use embassy_executor::Spawner;
 use embassy_futures::join::join;
 use embassy_stm32::{
@@ -27,20 +26,26 @@ use embassy_stm32::{
     usb_otg::{self, Driver},
     Config,
 };
-use embassy_sync::blocking_mutex::raw::NoopRawMutex;
+use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::channel::Channel;
 use embassy_time::Timer;
 use embassy_usb::{
     class::cdc_acm::{CdcAcmClass, State},
     Builder,
 };
-use panic_probe as _;
-use shared_data::message::config_entry::ConfigEntry;
+use heapless as hl;
+use shared_data::config::{hardware::HWBtnConfig, slider::SliderConfig, software::SWBtnConfig};
 use shared_data::message::Message;
-use shared_data::N_CONFIG_ENTRIES;
 
-const CONFIG_DEFAULT: ConfigEntry = ConfigEntry::Command(0, Vec::new());
-static CONFIG_ENTRIES: [ConfigEntry; N_CONFIG_ENTRIES] = [CONFIG_DEFAULT; N_CONFIG_ENTRIES];
+//TODO: static bitmap manager to interact with SD card
+// ...
+static HARDWARE_BUTTONS: HWBtnConfig = HWBtnConfig::new(hl::Vec::new());
+static SOFTWARE_BUTTONS: SWBtnConfig = SWBtnConfig::new(hl::Vec::new());
+static SLIDERS: SliderConfig = SliderConfig::new(hl::Vec::new());
+
+const USB_PACKET_SIZE: usize = 64;
+static USB_RX_CHANNEL: Channel<CriticalSectionRawMutex, Message, 5> = Channel::new();
+static USB_TX_CHANNEL: Channel<CriticalSectionRawMutex, Message, 5> = Channel::new();
 
 // map the peripherals that need interrupt handlers
 bind_interrupts!(
@@ -66,12 +71,26 @@ async fn main(s: Spawner) {
 
     info!("Basics done!");
 
+    let mut ep_out_buffer = [0u8; 256];
+    let mut device_descriptor = [0; 256];
+    let mut config_descriptor = [0; 256];
+    let mut bos_descriptor = [0; 256];
+    let mut control_buf = [0; 64];
+
+    let mut state = State::new();
+
     let (mut class, mut usb) = {
-        let ep_out_buffer = Box::leak(Box::new([0u8; 256]));
         let mut config = usb_otg::Config::default();
         config.vbus_detection = false;
 
-        let driver = Driver::new_fs(pp.USB_OTG_FS, Irqs, pp.PA12, pp.PA11, ep_out_buffer, config);
+        let driver = Driver::new_fs(
+            pp.USB_OTG_FS,
+            Irqs,
+            pp.PA12,
+            pp.PA11,
+            &mut ep_out_buffer,
+            config,
+        );
 
         let mut config = embassy_usb::Config::new(0xffff, 0x0000);
 
@@ -84,41 +103,43 @@ async fn main(s: Spawner) {
         config.device_protocol = 0x01;
         config.composite_with_iads = true;
 
-        let device_descriptor = Box::leak(Box::new([0; 256]));
-        let config_descriptor = Box::leak(Box::new([0; 256]));
-        let bos_descriptor = Box::leak(Box::new([0; 256]));
-        let control_buf = Box::leak(Box::new([0; 64]));
-
-        let state = Box::leak(Box::new(State::new()));
+        config.max_packet_size_0 = (USB_PACKET_SIZE & (0xFF)) as u8;
 
         let mut builder = Builder::new(
             driver,
             config,
-            device_descriptor,
-            config_descriptor,
-            bos_descriptor,
+            &mut device_descriptor,
+            &mut config_descriptor,
+            &mut bos_descriptor,
             &mut [],
-            control_buf,
+            &mut control_buf,
         );
 
-        (CdcAcmClass::new(&mut builder, state, 64), builder.build())
+        (
+            CdcAcmClass::new(&mut builder, &mut state, 64),
+            builder.build(),
+        )
     };
 
-    let usb_fut = usb.run();
+    let usb_run = usb.run();
     // let button = ExtiInput::new(Input::new(pp.PC13, Pull::Down), pp.EXTI13);
     let led = Output::new(pp.PC13, Level::High, Speed::Low);
 
     info!("Pins set!");
 
-    // we need to box leak to fix lifetimes
-    let usb_message_channel = Box::leak(Box::new(Channel::<NoopRawMutex, Message, 5>::new()));
-
     #[allow(unreachable_code)]
-    let write_fut = async {
+    let usb_rx_tx = async {
         loop {
             class.wait_connection().await;
             info!("USB connected!");
-            match message::usb_send_message(&mut class, usb_message_channel.receiver()).await {
+
+            match message::usb_messaging(
+                &mut class,
+                USB_TX_CHANNEL.receiver(),
+                USB_RX_CHANNEL.sender(),
+            )
+            .await
+            {
                 Ok(_) => todo!(),
                 Err(_) => todo!(),
             }
@@ -127,10 +148,8 @@ async fn main(s: Spawner) {
     };
 
     s.spawn(blinky_task(led)).ok();
-    s.spawn(message::mock_message_sender(usb_message_channel.sender()))
-        .ok();
 
-    join(usb_fut, write_fut).await;
+    join(usb_run, usb_rx_tx).await;
 
     unreachable!("REACHED END OF MAIN!");
 }

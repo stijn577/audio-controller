@@ -1,26 +1,27 @@
 #[cfg(feature = "std")]
 use crate::{message::error::MessageError, _SHELL, _SHELL_EXEC};
+use alloc::vec::Vec;
 use serde::{Deserialize, Serialize};
 
 #[cfg_attr(not(feature = "std"), derive(defmt::Format))]
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum ConfigEntry {
-    Command(u8, alloc::vec::Vec<alloc::string::String>),
-    KeyPress(u8, alloc::vec::Vec<u8>),
+pub enum Action {
+    Command(Vec<alloc::string::String>),
+    KeyPress(Vec<u8>),
 }
 
-impl Default for ConfigEntry {
+impl Default for Action {
     fn default() -> Self {
-        Self::Command(0, alloc::vec::Vec::new())
+        Self::Command(Vec::new())
     }
 }
 
 #[cfg(feature = "std")]
-impl ConfigEntry {
+impl Action {
     pub(crate) async fn execute_entry(&self) -> Result<(), MessageError> {
         match self {
-            ConfigEntry::Command(_, args) => self.execute_command(args).await,
-            ConfigEntry::KeyPress(_, keycodes) => self.execute_keystrokes(keycodes).await,
+            Action::Command(args) => self.execute_command(args).await,
+            Action::KeyPress(keycodes) => self.execute_keystrokes(keycodes).await,
         }
     }
 

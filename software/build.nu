@@ -1,20 +1,7 @@
 def "gg build" [] {
     print "Building all..."
-    gg build macros
-    gg build shared
     gg build client
     gg build server
-}
-
-def "gg build macros" [] {
-    print "Building macros..."
-    cd macros
-    cargo build -q
-}
-
-def "gg build shared" [] {
-    print "Building shared data..."
-    cargo build -q
 }
 
 def "gg build client" [] {
@@ -41,7 +28,6 @@ def "gg server" [] {
 
 
 def "gg clean" [] {
-    cd software
     cargo clean
     cd client
     cargo clean

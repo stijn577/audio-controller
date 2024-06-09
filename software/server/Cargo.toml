@@ -3,10 +3,14 @@ name = "server"
 version = "0.1.0"
 edition = "2021"
 
+[[bin]]
+name = "configurator"
+
 [dependencies]
 anyhow = "1.0.86"
 thiserror = "1.0.61"
 tokio = { version = "1.38.0", features = ["full"] }
+tokio-serial = "5.4.4"
 windows-volume-control = "0.1.1"
 
 serde_cbor = { version = "0.11.2", features = ["alloc"] }
@@ -15,3 +19,7 @@ serde_cbor = { version = "0.11.2", features = ["alloc"] }
 version = "*"
 path = ".."
 features = ["std"]
+
+[dev-dependencies.server]
+version = "*"
+path = "."

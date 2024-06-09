@@ -1,13 +1,14 @@
-use serde::{Deserialize, Serialize};
 use crate::N_SLIDERS;
+use serde::{Deserialize, Serialize};
 
+#[cfg_attr(not(feature = "std"), derive(defmt::Format))]
 #[derive(Serialize, Deserialize, Debug)]
-pub struct AudioLevels {
+pub struct AudioLvls {
     // array of AUDIO levels, (range 0-1024)
     data: [u16; N_SLIDERS],
 }
 
-impl AudioLevels {
+impl AudioLvls {
     pub fn new(data: [u16; N_SLIDERS]) -> Self {
         Self { data }
     }

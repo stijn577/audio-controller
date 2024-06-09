@@ -1,9 +1,8 @@
 use serde::{Deserialize, Serialize};
-#[cfg(feature="std")]
+#[cfg(feature = "std")]
 use thiserror;
-#[cfg(not(feature="std"))]
+#[cfg(not(feature = "std"))]
 use thiserror_no_std;
-
 
 #[cfg_attr(feature = "std", derive(thiserror::Error))]
 #[cfg_attr(not(feature = "std"), derive(thiserror_no_std::Error))]
