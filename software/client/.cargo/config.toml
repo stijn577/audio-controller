@@ -26,13 +26,12 @@ rustflags = [
 
 [build]
 target = "thumbv7em-none-eabihf"
-release = true
 
 [watch]
 flags = ["-q", "-c", "-x"]
 
 [env]
-DEFMT_LOG = "trace"
+DEFMT_LOG = "info"
 
 [profile.release]
 # Allows defmt to display log locations even in release

@@ -70,28 +70,29 @@ name = "client"
 harness = false
 # test = false
 
-# # Set the default for dependencies.
-# [profile.dev]
-# codegen-units = 1
-# debug = true
+
+# Set the default for dependencies.
+[profile.dev]
+codegen-units = 1
+debug = true
+debug-assertions = true
+incremental = true
+lto = "fat"
+opt-level = "s"
+
+[profile.dev.package."*"]
+opt-level = "s"
+debug = true
 # debug-assertions = true
-# incremental = true
-# lto = "fat"
-# opt-level = "s"
 
-# [profile.dev.package."*"]
-# opt-level = "s"
-# debug = true
-# # debug-assertions = true
+[profile.release]
+codegen-units = 1
+incremental = true
+debug = true
+debug-assertions = true
+lto = true
+opt-level = "s"
 
-# [profile.release]
-# codegen-units = 1
-# incremental = true
-# debug = true
-# debug-assertions = true
-# lto = true
-# opt-level = "s"
-
-# [build-dependencies]
-# cc = "1.0.83"
-# # cmake = "0.1.50"
+[build-dependencies]
+cc = "1.0.83"
+# cmake = "0.1.50"

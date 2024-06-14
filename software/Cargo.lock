@@ -179,6 +179,7 @@ name = "client"
 version = "0.1.0"
 dependencies = [
  "alloc-cortex-m",
+ "cc",
  "cortex-m",
  "cortex-m-rt",
  "defmt",

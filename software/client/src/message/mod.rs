@@ -1,4 +1,6 @@
+use alloc::string::String;
 use alloc::vec::Vec;
+use defmt::warn;
 use defmt::{info, println};
 use embassy_stm32::usb_otg::Driver;
 use embassy_stm32::usb_otg::Instance;
@@ -6,6 +8,8 @@ use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
 use embassy_sync::blocking_mutex::raw::NoopRawMutex;
 use embassy_sync::channel::Receiver;
 use embassy_sync::channel::Sender;
+use embassy_time::Delay;
+use embassy_time::Timer;
 use embassy_usb::class::cdc_acm::CdcAcmClass;
 use embassy_usb::driver::EndpointError;
 use serde::Serialize;
@@ -72,41 +76,53 @@ impl From<EndpointError> for Disconnected {
 ///
 pub(crate) async fn usb_messaging<'d, T: Instance + 'd>(
     class: &mut CdcAcmClass<'d, Driver<'d, T>>,
-    rx: Receiver<'static, CriticalSectionRawMutex, Message, 5>,
-    tx: Sender<'static, CriticalSectionRawMutex, Message, 5>,
-) -> Result<(), Disconnected> {
-    loop {
-        // let mut packet_buf = [0u8; USB_PACKET_SIZE];
-        // let mut msg_buf = Vec::with_capacity(USB_PACKET_SIZE);
+    usb_transmit_channel: Receiver<'static, CriticalSectionRawMutex, Message, 5>,
+    usb_received_channel: Sender<'static, CriticalSectionRawMutex, Message, 5>,
+) -> Result<(), EndpointError> {
+    let mut packet_buf = [0u8; USB_PACKET_SIZE];
+    let mut msg_buf = Vec::with_capacity(USB_PACKET_SIZE);
 
-        // while let Ok(n) = class.read_packet(&mut packet_buf).await {
-        //     msg_buf.push(packet_buf);
-        //     packet_buf.fill(0);
+    while let Ok(n) = class.read_packet(&mut packet_buf).await {
+        msg_buf.push(packet_buf);
+        packet_buf.fill(0);
 
-        //     if n < USB_PACKET_SIZE {
-        //         // break out once we see a packet is not MAX SIZE (this means the message is complete)
-        //         break;
-        //     }
-        // }
-
-        // let msg_buf = msg_buf.into_iter().flatten().collect::<Vec<_>>();
-
-        // if let Ok(msg) = Message::deserialize(&msg_buf) {
-        //     tx.send(msg).await;
-        // }
-
-        // if let Ok(msg) = rx.try_receive() {
-        //     for packet in msg.serialize().unwrap().chunks(USB_PACKET_SIZE) {
-        //         class.write_packet(&packet).await.unwrap();
-        //     }
-        // }
-
-        let buf = "Hello world!\r\n".as_bytes();
-
-        class.write_packet(buf).await.unwrap();
-
-        info!("Message sent succesfully")
+        if n < USB_PACKET_SIZE {
+            // break out once we see a packet is not MAX SIZE (this means the message is complete)
+            break;
+        }
     }
+
+    let msg_buf = msg_buf.into_iter().flatten().collect::<Vec<_>>();
+
+    if let Ok(msg) = Message::deserialize(&msg_buf) {
+        println!("Received message: {:?}", msg);
+        usb_received_channel.send(msg).await;
+    } else {
+        let msg = String::from_utf8_lossy(&msg_buf);
+        if let Some(n) = msg.find('\0') {
+            warn!(
+                "Failed to deserialize message:\n\tData as String: {:?}",
+                msg.split_at(n).0
+            );
+        }
+    }
+
+    if let Ok(msg) = usb_transmit_channel.try_receive() {
+        for packet in msg.serialize().unwrap().chunks(USB_PACKET_SIZE) {
+            class.write_packet(&packet).await.unwrap();
+        }
+    } else {
+        println!("No message to send to server");
+    }
+
+    for chunk in msg_buf.chunks(64) {
+        match class.write_packet(&chunk).await {
+            Ok(_) => (),
+            Err(_) => (),
+        }
+    }
+
+    Ok(())
 }
 
 // pub(crate) async fn usb_read_message<'d, T: Instance + 'd>(

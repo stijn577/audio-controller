@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{io::Read, time::Duration};
 
 use anyhow::Context;
 use os_commands::_audio_control;
@@ -8,7 +8,7 @@ mod os_commands;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let usb = tokio_serial::new("COMx", 115200)
+    let mut usb = tokio_serial::new("COM18", 115200)
         .baud_rate(115200)
         .data_bits(tokio_serial::DataBits::Eight)
         .flow_control(tokio_serial::FlowControl::None)
@@ -16,6 +16,13 @@ async fn main() -> anyhow::Result<()> {
         .timeout(Duration::from_millis(1000))
         .open_native()
         .with_context(|| "Failed to open serial port")?;
+
+    loop {
+        let mut buf = [0u8; 1024];
+        let _ = usb.read(&mut buf);
+        let s = String::from_utf8_lossy(&buf);
+        println!("{:?}", s);
+    }
 
     if cfg!(target_os = "windows") {
         // TODO: receive slot messages from controller, instead of hardcoding here

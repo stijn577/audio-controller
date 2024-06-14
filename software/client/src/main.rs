@@ -16,7 +16,7 @@ use defmt_rtt as _;
 use panic_probe as _;
 
 use crate::utils::setup::*;
-use defmt::info;
+use defmt::{info, println, warn};
 use embassy_executor::Spawner;
 use embassy_futures::join::join;
 use embassy_stm32::{
@@ -75,13 +75,13 @@ async fn main(s: Spawner) {
 
     info!("Basics done!");
 
-    let mut ep_out_buffer = [0u8; 256 * 5];
+    let mut ep_out_buffer = [0u8; 256];
 
-    let mut device_descriptor = [0; 256];
+    // let mut device_descriptor = [0; 256];
     let mut config_descriptor = [0; 256];
     let mut bos_descriptor = [0; 256];
     let mut msos_descriptor = [0; 256];
-    let mut control_buf = [0; 256];
+    let mut control_buf = [0; 64];
 
     let mut state = State::new();
 
@@ -126,14 +126,14 @@ async fn main(s: Spawner) {
 
         let class = CdcAcmClass::new(&mut builder, &mut state, 64);
 
-        let msos_writer = builder.msos_writer();
-        msos_writer.configuration(0);
-        msos_writer.function(InterfaceNumber(0));
-        msos_writer.function_feature(msos::CompatibleIdFeatureDescriptor::new("WINUSB", ""));
-        msos_writer.function_feature(msos::RegistryPropertyFeatureDescriptor::new(
-            "DeviceInterfaceGUIDs",
-            msos::PropertyData::RegMultiSz(DEVICE_INTERFACE_GUIDS),
-        ));
+        // let msos_writer = builder.msos_writer();
+        // msos_writer.configuration(0);
+        // msos_writer.function(InterfaceNumber(0));
+        // msos_writer.function_feature(msos::CompatibleIdFeatureDescriptor::new("WINUSB", ""));
+        // msos_writer.function_feature(msos::RegistryPropertyFeatureDescriptor::new(
+        //     "DeviceInterfaceGUIDs",
+        //     msos::PropertyData::RegMultiSz(DEVICE_INTERFACE_GUIDS),
+        // ));
 
         let usb = builder.build();
 
@@ -159,10 +159,9 @@ async fn main(s: Spawner) {
             )
             .await
             {
-                Ok(_) => todo!(),
-                Err(_) => todo!(),
+                Ok(_) => (),
+                Err(_) => warn!("Failed to send message to server"),
             }
-            info!("Disconnected");
         }
     };
 
@@ -177,12 +176,12 @@ async fn main(s: Spawner) {
 async fn blinky_task(mut led: Output<'static, peripherals::PC13>) {
     loop {
         led.set_high();
-        info!("LED off!");
+        println!("LED off!");
 
         Timer::after_millis(1000).await;
 
         led.set_low();
-        info!("LED on!");
+        println!("LED on!");
 
         Timer::after_millis(1000).await;
     }

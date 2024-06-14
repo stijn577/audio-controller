@@ -2,7 +2,7 @@ use defmt::warn;
 use embassy_stm32::{
     rcc::{
         AHBPrescaler, APBPrescaler, Hse, HseMode, LsConfig, Pll, PllMul, PllPDiv, PllPreDiv,
-        PllSource, RtcClockSource, Sysclk,
+        PllQDiv, PllRDiv, PllSource, RtcClockSource, Sysclk,
     },
     time::Hertz,
 };
@@ -18,31 +18,27 @@ pub fn heap_setup() {
 }
 
 pub fn clock_setup(config: &mut embassy_stm32::rcc::Config) {
-    let hse = Some(Hse {
+    config.hsi = true;
+    config.hse = Some(Hse {
         freq: Hertz(25_000_000),
         mode: HseMode::Oscillator,
     });
-
-    let pll = Some(Pll {
+    config.sys = Sysclk::PLL1_P;
+    config.pll_src = PllSource::HSE;
+    config.pll = Some(Pll {
         prediv: PllPreDiv::DIV25,
-        mul: PllMul::MUL168,
-        divp: Some(PllPDiv::DIV2),
-        divq: None,
+        mul: PllMul::MUL336,
+        divp: Some(PllPDiv::DIV4),
+        divq: Some(PllQDiv::DIV7),
         divr: None,
     });
-
-    let _ls = LsConfig {
-        rtc: RtcClockSource::HSE,
-        lsi: false,
-        lse: None,
-    };
-
-    config.hsi = false;
-    config.hse = hse;
-    config.sys = Sysclk::HSE;
-    config.pll_src = PllSource::HSE;
-    config.pll = pll;
-    config.plli2s = None;
+    config.plli2s = Some(Pll {
+        prediv: PllPreDiv::DIV25,
+        mul: PllMul::MUL192,
+        divp: None,
+        divq: None,
+        divr: Some(PllRDiv::DIV2),
+    });
     config.ahb_pre = AHBPrescaler::DIV1;
     config.apb1_pre = APBPrescaler::DIV2;
     config.apb2_pre = APBPrescaler::DIV1;
