@@ -1408,7 +1408,6 @@ dependencies = [
 name = "shared-data"
 version = "0.1.0"
 dependencies = [
- "audio-controller-macros",
  "defmt",
  "embedded-graphics",
  "heapless 0.8.0",

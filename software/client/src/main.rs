@@ -8,7 +8,7 @@ extern crate core;
 
 // defining our own modules
 mod error;
-mod message;
+mod usb;
 mod prelude;
 mod utils;
 
@@ -152,7 +152,7 @@ async fn main(s: Spawner) {
             class.wait_connection().await;
             info!("USB connected!");
 
-            match message::usb_messaging(
+            match usb::usb_messaging(
                 &mut class,
                 USB_TX_CHANNEL.receiver(),
                 USB_RX_CHANNEL.sender(),

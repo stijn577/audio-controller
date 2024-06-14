@@ -63,7 +63,7 @@ usb-device = { version = "0.3.2", features = ["defmt"] }
 version = "0.1.0"
 path = ".."
 default-features = false
-features = ["no_std"]
+features = ["defmt"]
 
 [[bin]]
 name = "client"

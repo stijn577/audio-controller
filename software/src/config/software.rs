@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 /// # Fields
 ///
 /// * `0` - A 2D vector of `BtnEntry` instances.
-#[cfg_attr(not(feature = "std"), derive(defmt::Format))]
+#[cfg_attr(feature="defmt", derive(defmt::Format))]
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct SWBtnConfig(hl::Vec<hl::Vec<BtnEntry, N_SWB_PER_SCREEN>, N_SCREENS>);
 

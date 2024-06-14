@@ -1,12 +1,11 @@
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "std")]
-use thiserror;
+use thiserror::Error;
 #[cfg(not(feature = "std"))]
-use thiserror_no_std;
+use thiserror_no_std::Error;
 
-#[cfg_attr(feature = "std", derive(thiserror::Error))]
-#[cfg_attr(not(feature = "std"), derive(thiserror_no_std::Error))]
-#[derive(Serialize, Deserialize, Debug)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[derive(Serialize, Deserialize, Debug, Error)]
 pub enum MessageError {
     NoMatchingCommand,
     CommandLaunch,

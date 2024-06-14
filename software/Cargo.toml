@@ -14,28 +14,20 @@ serde_cbor = { version = "0.11.2", default-features = false, features = [
 ] }
 # one of these is for std, the other for no_std -> optional = true
 thiserror = { version = "1.0.61", optional = true }
-thiserror-no-std = { version = "2.0.2", optional = true }
+thiserror-no-std = { version = "2.0.2" }
 # these codes are only used to parse the messaging on the server side, so it is optional and enabled with std flag
 inputbot = { git = "https://github.com/obv-mikhail/InputBot", branch = "develop", optional = true }
 # tokio for async fn
 tokio = { version = "1.38.0", features = ["full"], optional = true }
 # we need to implement defmt::Format to be able to log a messaging to the debug probe (easier debugging)
-defmt = { version = "0.3.8", features = ["alloc"] }
-heapless = { version = "0.8.0", features = ["defmt-03", "serde"] }
-embedded-graphics = { version = "0.8.1", features = ["defmt"] }
+defmt = { version = "0.3.8", features = ["alloc"], optional = true }
+heapless = { version = "0.8.0", features = ["serde"]}
+embedded-graphics = { version = "0.8.1", optional = true }
 tinybmp = "0.6.0"
-
-[dependencies.audio-controller-macros]
-version = "*"
-path = "./audio-controller-macros"
 
 [workspace]
 members = ["client", "audio-controller-macros", "server"]
 
 [features]
-default = ["no_std"]
 std = ["dep:thiserror", "dep:inputbot", "dep:tokio"]
-no_std = ["dep:thiserror-no-std"]
-
-
-
+defmt = ["dep:defmt", "heapless/defmt-03", "embedded-graphics/defmt"]

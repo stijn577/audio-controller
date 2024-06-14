@@ -2,6 +2,7 @@ use crate::N_BITMAPS;
 use alloc::{string::String, vec::Vec};
 use heapless as hl;
 use serde::{Deserialize, Serialize};
+
 #[derive(Debug, Clone, Default)]
 pub struct BMPConfig(hl::LinearMap<String, RawBmpData, N_BITMAPS>);
 
@@ -22,7 +23,7 @@ impl Iterator for BMPConfig {
     }
 }
 
-#[cfg(not(feature = "std"))]
+#[cfg(feature="defmt")]
 impl defmt::Format for BMPConfig {
     fn format(&self, fmt: defmt::Formatter) {
         self.0.iter().for_each(|(k, v)| {
@@ -31,7 +32,7 @@ impl defmt::Format for BMPConfig {
     }
 }
 
-#[cfg_attr(not(feature = "std"), derive(defmt::Format))]
+#[cfg_attr(feature="defmt", derive(defmt::Format))]
 #[derive(Serialize, Deserialize, Debug, Clone, Default, Hash)]
 pub struct RawBmpData {
     w: usize,

@@ -1,2 +1,9 @@
+[build]
+rustflags = [
+    "-Z",
+    "threads=8",
+]
+
+
 [watch]
 flags = ["-q", "-c", "-x"]

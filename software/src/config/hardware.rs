@@ -3,7 +3,7 @@ use crate::N_HWB;
 use heapless as hl;
 use serde::{Deserialize, Serialize};
 
-#[cfg_attr(not(feature = "std"), derive(defmt::Format))]
+#[cfg_attr(feature="defmt", derive(defmt::Format))]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct HWBtnConfig(hl::Vec<Action, N_HWB>);
 

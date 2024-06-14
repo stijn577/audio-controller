@@ -8,7 +8,7 @@ pub mod hardware;
 pub mod slider;
 pub mod software;
 
-#[cfg_attr(not(feature = "std"), derive(defmt::Format))]
+#[cfg_attr(feature="defmt", derive(defmt::Format))]
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct BtnEntry {
     exec: Action,

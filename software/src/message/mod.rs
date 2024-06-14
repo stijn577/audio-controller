@@ -25,7 +25,7 @@ pub mod error;
 /// let sw_btn_config = SWBtnConfig { /* ... */ };
 /// let sw_btn_config_message = Message::SWBtnConfig(Box::new(sw_btn_config));
 /// ```
-#[cfg_attr(not(feature = "std"), derive(defmt::Format))]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(Serialize, Deserialize, Debug)]
 pub enum Message {
     /// Request from the audio-controller to load the current configuration from PC host memory config files (static between sessions).
@@ -106,7 +106,8 @@ impl Message {
     ///
     /// This method returns a `Result` containing the deserialized message.
     pub fn deserialize(data: &[u8]) -> Result<Self, MessageError> {
-        serde_cbor::from_slice(data).map_err(|_| MessageError::Cbor)
+        let data: Vec<u8> = data.iter().cloned().filter(|&b| b != 0).collect();
+        serde_cbor::from_slice(&data).map_err(|_| MessageError::Cbor)
     }
 }
 

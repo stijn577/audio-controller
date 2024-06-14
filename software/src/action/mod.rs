@@ -3,7 +3,7 @@ use crate::{message::error::MessageError, _SHELL, _SHELL_EXEC};
 use alloc::vec::Vec;
 use serde::{Deserialize, Serialize};
 
-#[cfg_attr(not(feature = "std"), derive(defmt::Format))]
+#[cfg_attr(feature="defmt", derive(defmt::Format))]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum Action {
     Command(Vec<alloc::string::String>),

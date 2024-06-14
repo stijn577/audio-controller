@@ -94,6 +94,7 @@ pub(crate) async fn usb_messaging<'d, T: Instance + 'd>(
 
     let msg_buf = msg_buf.into_iter().flatten().collect::<Vec<_>>();
 
+
     if let Ok(msg) = Message::deserialize(&msg_buf) {
         println!("Received message: {:?}", msg);
         usb_received_channel.send(msg).await;
