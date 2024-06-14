@@ -11,16 +11,6 @@ args = [
     "./target/thumbv7em-none-eabihf/debug/stealth577",
 ]
 
-[tasks.test]
-dependencies = ["build"]
-command = "cargo"
-args = ["test", "--test", "${@}"]
-
-[tasks.tests]
-dependencies = ["build"]
-command = "cargo"
-args = ["test", "--test", "tests"]
-
 [tasks.list]
 command = "probe-rs"
 args = ["list"]
@@ -35,18 +25,14 @@ args = ["list"]
 # command = "cargo"
 # args = ["watch", "-q", "-c", "-x r"]
 
-# [tasks.rmasm]
-# command = "nu"
-# arguments = ["-c", "rm stealth577.s"]
-
-[tasks.clean_asm]
+[tasks.undump]
 command = "nu"
-args = ["-c", "rm ./stealt577.s"]
+args = ["-c", "rm ./client.asm"]
 
 [tasks.dump]
 dependencies = ["build"]
 command = "nu"
 args = [
     "-c",
-    "arm-none-eabi-objdump.exe --disassemble ./target/thumbv7em-none-eabihf/debug/stealth577 | save stealth577.s -f",
+    "arm-none-eabi-objdump.exe --disassemble ../target/thumbv7em-none-eabihf/debug/client | save ./client.asm -f",
 ]

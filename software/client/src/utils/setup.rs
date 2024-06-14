@@ -7,7 +7,6 @@ use embassy_stm32::{
     time::Hertz,
 };
 
-
 #[global_allocator]
 static HEAP_ALLOCATOR: alloc_cortex_m::CortexMHeap = alloc_cortex_m::CortexMHeap::empty();
 

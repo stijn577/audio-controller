@@ -23,14 +23,16 @@ rustflags = [
     "threads=8",
 ]
 
+
 [build]
 target = "thumbv7em-none-eabihf"
+release = true
 
 [watch]
 flags = ["-q", "-c", "-x"]
 
 [env]
-DEFMT_LOG = "info"
+DEFMT_LOG = "trace"
 
 [profile.release]
 # Allows defmt to display log locations even in release
@@ -39,6 +41,6 @@ debug = true
 [alias]
 a = "make attach"
 attach = "make attach"
-ts = "make tests"
-tests = "make tests"
-w = "watch -q -c -x r"
+list = "make list"
+dump = "make dump"
+undump = "make undump"

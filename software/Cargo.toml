@@ -23,7 +23,7 @@ tokio = { version = "1.38.0", features = ["full"], optional = true }
 defmt = { version = "0.3.8", features = ["alloc"] }
 heapless = { version = "0.8.0", features = ["defmt-03", "serde"] }
 embedded-graphics = { version = "0.8.1", features = ["defmt"] }
-tinybmp = "0.5.0"
+tinybmp = "0.6.0"
 
 [dependencies.audio-controller-macros]
 version = "*"
@@ -36,3 +36,6 @@ members = ["client", "audio-controller-macros", "server"]
 default = ["no_std"]
 std = ["dep:thiserror", "dep:inputbot", "dep:tokio"]
 no_std = ["dep:thiserror-no-std"]
+
+
+

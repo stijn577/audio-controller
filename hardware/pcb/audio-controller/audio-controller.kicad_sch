@@ -1,0 +1,19 @@
+(kicad_sch (version 20230121) (generator eeschema)
+
+  (uuid 8401cfc9-08c9-48d5-8a56-b4718524a9d6)
+
+  (paper "A4")
+
+  (title_block
+    (title "audio-controller")
+    (company "stijn577")
+  )
+
+  (lib_symbols
+  )
+
+
+  (sheet_instances
+    (path "/" (page "1"))
+  )
+)

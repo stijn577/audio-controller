@@ -76,28 +76,34 @@ pub(crate) async fn usb_messaging<'d, T: Instance + 'd>(
     tx: Sender<'static, CriticalSectionRawMutex, Message, 5>,
 ) -> Result<(), Disconnected> {
     loop {
-        let mut packet_buf = [0u8; USB_PACKET_SIZE];
-        let mut msg_buf = Vec::with_capacity(USB_PACKET_SIZE);
+        // let mut packet_buf = [0u8; USB_PACKET_SIZE];
+        // let mut msg_buf = Vec::with_capacity(USB_PACKET_SIZE);
 
-        while let Ok(n) = class.read_packet(&mut packet_buf).await {
-            msg_buf.push(packet_buf);
-            packet_buf.fill(0);
+        // while let Ok(n) = class.read_packet(&mut packet_buf).await {
+        //     msg_buf.push(packet_buf);
+        //     packet_buf.fill(0);
 
-            if n < USB_PACKET_SIZE {
-                // break out once we see a packet is not MAX SIZE (this means the message is complete)
-                break;
-            }
-        }
+        //     if n < USB_PACKET_SIZE {
+        //         // break out once we see a packet is not MAX SIZE (this means the message is complete)
+        //         break;
+        //     }
+        // }
 
-        if let Ok(msg) = Message::deserialize(&msg_buf) {
-            tx.send(msg).await;
-        }
+        // let msg_buf = msg_buf.into_iter().flatten().collect::<Vec<_>>();
 
-        if let Ok(msg) = rx.try_receive() {
-            for packet in msg.serialize().unwrap().chunks(USB_PACKET_SIZE) {
-                class.write_packet(&packet).await.unwrap();
-            }
-        }
+        // if let Ok(msg) = Message::deserialize(&msg_buf) {
+        //     tx.send(msg).await;
+        // }
+
+        // if let Ok(msg) = rx.try_receive() {
+        //     for packet in msg.serialize().unwrap().chunks(USB_PACKET_SIZE) {
+        //         class.write_packet(&packet).await.unwrap();
+        //     }
+        // }
+
+        let buf = "Hello world!\r\n".as_bytes();
+
+        class.write_packet(buf).await.unwrap();
 
         info!("Message sent succesfully")
     }

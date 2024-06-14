@@ -4,9 +4,9 @@ extern crate alloc;
 #[cfg(feature = "std")]
 extern crate std;
 
+pub mod action;
 pub mod audiolevels;
 pub mod config;
-pub mod action;
 pub mod message;
 
 #[cfg(target_os = "windows")]

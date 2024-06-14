@@ -31,6 +31,8 @@ use embassy_sync::channel::Channel;
 use embassy_time::Timer;
 use embassy_usb::{
     class::cdc_acm::{CdcAcmClass, State},
+    msos::{self, windows_version},
+    types::InterfaceNumber,
     Builder,
 };
 use heapless as hl;
@@ -39,9 +41,9 @@ use shared_data::message::Message;
 
 //TODO: static bitmap manager to interact with SD card
 // ...
-static HARDWARE_BUTTONS: HWBtnConfig = HWBtnConfig::new(hl::Vec::new());
-static SOFTWARE_BUTTONS: SWBtnConfig = SWBtnConfig::new(hl::Vec::new());
-static SLIDERS: SliderConfig = SliderConfig::new(hl::Vec::new());
+// static HARDWARE_BUTTONS: HWBtnConfig = HWBtnConfig::new(hl::Vec::new());
+// static SOFTWARE_BUTTONS: SWBtnConfig = SWBtnConfig::new(hl::Vec::new());
+// static SLIDERS: SliderConfig = SliderConfig::new(hl::Vec::new());
 
 const USB_PACKET_SIZE: usize = 64;
 static USB_RX_CHANNEL: Channel<CriticalSectionRawMutex, Message, 5> = Channel::new();
@@ -55,6 +57,8 @@ bind_interrupts!(
         OTG_FS => usb_otg::InterruptHandler<peripherals::USB_OTG_FS>;
     }
 );
+
+const DEVICE_INTERFACE_GUIDS: &[&str] = &["{EAA9A5DC-30BA-44BC-9232-606CDC875321}"];
 
 #[allow(unreachable_code)]
 #[embassy_executor::main]
@@ -71,15 +75,20 @@ async fn main(s: Spawner) {
 
     info!("Basics done!");
 
-    let mut ep_out_buffer = [0u8; 256];
+    let mut ep_out_buffer = [0u8; 256 * 5];
+
     let mut device_descriptor = [0; 256];
     let mut config_descriptor = [0; 256];
     let mut bos_descriptor = [0; 256];
-    let mut control_buf = [0; 64];
+    let mut msos_descriptor = [0; 256];
+    let mut control_buf = [0; 256];
 
     let mut state = State::new();
 
-    let (mut class, mut usb) = {
+    // let allocator = usb_device::bus::UsbBusAllocator::new()
+    // let mut serial = usbd_serial::SerialPort::new(&)
+
+    let (mut usb, mut class) = {
         let mut config = usb_otg::Config::default();
         config.vbus_detection = false;
 
@@ -92,33 +101,43 @@ async fn main(s: Spawner) {
             config,
         );
 
-        let mut config = embassy_usb::Config::new(0xffff, 0x0000);
+        let mut config = embassy_usb::Config::new(0xc0de, 0xcafe);
 
         config.manufacturer = Some("stijn577");
         config.product = Some("audio-controller");
-        config.serial_number = Some("123456789");
+        config.serial_number = Some("12345678");
 
         config.device_class = 0xEF;
         config.device_sub_class = 0x02;
         config.device_protocol = 0x01;
         config.composite_with_iads = true;
 
-        config.max_packet_size_0 = (USB_PACKET_SIZE & (0xFF)) as u8;
-
         let mut builder = Builder::new(
             driver,
             config,
-            &mut device_descriptor,
+            // &mut device_descriptor,
             &mut config_descriptor,
             &mut bos_descriptor,
-            &mut [],
+            &mut msos_descriptor,
             &mut control_buf,
         );
 
-        (
-            CdcAcmClass::new(&mut builder, &mut state, 64),
-            builder.build(),
-        )
+        builder.msos_descriptor(msos::windows_version::WIN10, 2);
+
+        let class = CdcAcmClass::new(&mut builder, &mut state, 64);
+
+        let msos_writer = builder.msos_writer();
+        msos_writer.configuration(0);
+        msos_writer.function(InterfaceNumber(0));
+        msos_writer.function_feature(msos::CompatibleIdFeatureDescriptor::new("WINUSB", ""));
+        msos_writer.function_feature(msos::RegistryPropertyFeatureDescriptor::new(
+            "DeviceInterfaceGUIDs",
+            msos::PropertyData::RegMultiSz(DEVICE_INTERFACE_GUIDS),
+        ));
+
+        let usb = builder.build();
+
+        (usb, class)
     };
 
     let usb_run = usb.run();

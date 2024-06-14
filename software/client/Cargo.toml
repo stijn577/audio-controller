@@ -2,7 +2,6 @@
 name = "client"
 version = "0.1.0"
 edition = "2021"
-
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
@@ -33,13 +32,13 @@ embassy-stm32 = { version = "0.1.0", features = [
     "exti",
     # "low-power",
 ] }
-embassy-sync = { version = "0.5.0", features = ["defmt"] }
+embassy-sync = { version = "0.6.0", features = ["defmt"] }
 embassy-time = { version = "0.3.0", features = [
     "defmt",
     "defmt-timestamp-uptime",
     "tick-hz-32_768",
 ] }
-embassy-usb = { version = "0.1.0", features = ["defmt"] }
+embassy-usb = { version = "0.2.0", features = ["defmt"] }
 
 #serialization
 serde = { version = "1.0.203", default-features = false, features = [
@@ -58,8 +57,10 @@ panic-probe = { version = "0.3.1", features = ["print-defmt"] }
 thiserror-no-std = "2.0.2"
 heapless = { version = "0.8.0", features = ["defmt-03", "serde"] }
 usbd-serial = "0.2.2"
+usb-device = { version = "0.3.2", features = ["defmt"] }
+
 [dependencies.shared-data]
-version = "*"
+version = "0.1.0"
 path = ".."
 default-features = false
 features = ["no_std"]
@@ -69,28 +70,28 @@ name = "client"
 harness = false
 # test = false
 
-# Set the default for dependencies.
-[profile.dev]
-codegen-units = 1
-debug = true
-debug-assertions = true
-incremental = true
-# # lto = "fat"
-opt-level = "s"
-
-[profile.dev.package."*"]
-opt-level = "s"
-debug = true
+# # Set the default for dependencies.
+# [profile.dev]
+# codegen-units = 1
+# debug = true
 # debug-assertions = true
+# incremental = true
+# lto = "fat"
+# opt-level = "s"
 
-[profile.release]
-codegen-units = 1
-incremental = true
-debug = true
-debug-assertions = true
-lto = true
-opt-level = "s"
+# [profile.dev.package."*"]
+# opt-level = "s"
+# debug = true
+# # debug-assertions = true
 
-[build-dependencies]
-cc = "1.0.83"
-# cmake = "0.1.50"
+# [profile.release]
+# codegen-units = 1
+# incremental = true
+# debug = true
+# debug-assertions = true
+# lto = true
+# opt-level = "s"
+
+# [build-dependencies]
+# cc = "1.0.83"
+# # cmake = "0.1.50"

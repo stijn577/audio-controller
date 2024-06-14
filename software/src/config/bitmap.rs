@@ -5,6 +5,12 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Default)]
 pub struct BMPConfig(hl::LinearMap<String, RawBmpData, N_BITMAPS>);
 
+impl BMPConfig {
+    pub fn new(config: hl::LinearMap<String, RawBmpData, N_BITMAPS>) -> Self {
+        Self(config)
+    }
+}
+
 impl Iterator for BMPConfig {
     type Item = (String, RawBmpData);
 
