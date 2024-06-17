@@ -1,21 +1,30 @@
-use std::{
-    io::{Read, Write},
-    time::Duration,
-};
-
+#![feature(never_type)]
 use anyhow::Context;
-use os_commands::_audio_control;
-
+use log::info;
+use log::warn;
 use shared_data::{action::Action, message::Message};
+use tokio::io::AsyncWriteExt;
 use tokio::time::sleep;
+use tokio::time::Duration;
+use tokio_serial::SerialPort;
 use tokio_serial::SerialPortBuilderExt;
 
 mod hardware_rx;
 mod os_commands;
 
 #[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    let mut usb = tokio_serial::new("COM18", 115200)
+async fn main() -> anyhow::Result<!> {
+    env_logger::init();
+
+    let port = tokio_serial::available_ports()
+        .context("Could not list ports!")?
+        .into_iter()
+        .map(|dev| {
+            info!("Found port: {:#?}", dev);
+            dev
+        });
+
+    let mut usb = tokio_serial::new("COM19", 115200)
         .baud_rate(115200)
         .data_bits(tokio_serial::DataBits::Eight)
         .flow_control(tokio_serial::FlowControl::None)
@@ -24,33 +33,39 @@ async fn main() -> anyhow::Result<()> {
         .open_native_async()
         .with_context(|| "Failed to open serial port")?;
 
-    println!("Usb made!");
+    info!("Usb made");
 
     let msg = Message::Action(Action::Command(vec![String::from("firefox.exe")]));
     let msg_cbor = msg.serialize().context("Failed to serialize")?;
-    println!("Message ready!");
+    info!("Message ready!");
 
-    loop {
+    Ok(loop {
         sleep(Duration::from_millis(1000)).await;
 
+        // wait for USB to be available to write
         if (usb.writable().await).is_ok() {
-            usb.write(&msg_cbor)
-                .context("Failed to write to serial port")?;
-            println!("Message sent!");
+            if let Ok(n) = usb.try_write(&msg_cbor) {
+                info!("Message sent!");
+            } else {
+                warn!("Failed to write to serial port");
+            }
         }
 
         let mut buf = [0u8; 1024];
+        // usb.flush();
+        // info!("usb flushed, waiting for message!");
+
+        sleep(Duration::from_millis(1000)).await;
+
+        // wait for the USB to be available to read
         if (usb.readable().await).is_ok() {
-            let n = usb
-                .read(&mut buf)
-                .context("Failed to read from serial port")?;
-
-            println!("Message received");
-            println!("{:?}", String::from_utf8_lossy(&buf[0..n]));
+            if let Ok(n) = usb.try_read(&mut buf) {
+                info!("Message received: {:?}", Message::deserialize(&buf));
+            } else {
+                warn!("Failed to read from serial port");
+            }
         }
-    }
-
-    Ok(())
+    })
 
     // if cfg!(target_os = "windows") {
     // TODO: receive slot messages from controller, instead of hardcoding here
@@ -60,7 +75,7 @@ async fn main() -> anyhow::Result<()> {
     // let msg = Message::ConfigEntry(ConfigEntry::Command(0, vec!["spotify.exe".to_string()]));
     // let out = msg.serialize().context("Failed to serialize")?;
     // let out = Message::deserialize(&out).context("Failed to deserialize")?;
-    // println!("{:?}", out);
+    // info!("{:?}", out);
     // out.execute_entry()
     //     .await
     // .context("Failed to launch application")?;

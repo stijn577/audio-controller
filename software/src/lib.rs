@@ -1,13 +1,20 @@
 #![no_std]
 
-extern crate alloc;
 #[cfg(feature = "std")]
 extern crate std;
 
+#[cfg(all(feature = "std", feature = "defmt"))]
+compile_error!("You can't use std and defmt at the same time");
+
+extern crate alloc;
+
+#[macro_use]
+pub(crate) mod macros;
 pub mod action;
 pub mod audiolevels;
 pub mod config;
 pub mod message;
+mod prelude;
 
 #[cfg(target_os = "windows")]
 const _SHELL: &str = "powershell";
@@ -19,6 +26,8 @@ const _SHELL: &str = "/bin/sh";
 #[cfg(target_os = "linux")]
 const _SHELL_EXEC: &str = "-c";
 
+/// usb max packet size
+pub const USB_PACKET_SIZE: usize = 64;
 /// The number of hardware buttons.
 pub const N_HWB: usize = 8;
 /// The number of different screens

@@ -56,20 +56,15 @@ panic-probe = { version = "0.3.1", features = ["print-defmt"] }
 
 thiserror-no-std = "2.0.2"
 heapless = { version = "0.8.0", features = ["defmt-03", "serde"] }
-usbd-serial = "0.2.2"
-usb-device = { version = "0.3.2", features = ["defmt"] }
 
 [dependencies.shared-data]
 version = "0.1.0"
 path = ".."
-default-features = false
-features = ["defmt"]
+features = ["defmt", "logging", "embassy"]
 
 [[bin]]
 name = "client"
 harness = false
-# test = false
-
 
 # Set the default for dependencies.
 [profile.dev]

@@ -3,9 +3,9 @@ use crate::{
     audiolevels::AudioLvls,
     config::{
         bitmap::RawBmpData, hardware::HWBtnConfig, slider::SliderConfig, software::SWBtnConfig,
-        Config,
     },
 };
+use crate::{prelude::*, USB_PACKET_SIZE};
 use alloc::{boxed::Box, string::String, vec::Vec};
 use error::MessageError;
 use serde::{Deserialize, Serialize};
@@ -52,6 +52,7 @@ pub enum Message {
     /// Sends audio levels message from the controller to the PC. So the volumes of processes can be adjusted.
     AudioLvls(AudioLvls),
 }
+
 impl Message {
     /// Serializes the message into a vector of bytes.
     ///
@@ -78,6 +79,7 @@ impl Message {
     ///
     /// This method returns a `Result` containing a vector of bytes representing the serialized message.
     pub fn serialize(&self) -> Result<alloc::vec::Vec<u8>, MessageError> {
+        cond_log!(debug!("serialize"));
         serde_cbor::to_vec(&self).map_err(|_| MessageError::Cbor)
     }
 
@@ -106,24 +108,65 @@ impl Message {
     ///
     /// This method returns a `Result` containing the deserialized message.
     pub fn deserialize(data: &[u8]) -> Result<Self, MessageError> {
+        cond_log!(debug!("deserialize"));
         let data: Vec<u8> = data.iter().cloned().filter(|&b| b != 0).collect();
         serde_cbor::from_slice(&data).map_err(|_| MessageError::Cbor)
     }
 }
 
-#[cfg(not(feature = "std"))]
+#[cfg(feature = "embassy")]
 impl Message {
-    pub async fn send(self) -> Result<Message, MessageError> {
-        if let ser = self.serialize() {};
-        todo!()
+    pub async fn tx_to_server<'a, D>(
+        self,
+        class: &mut CdcAcmClass<'a, D>,
+    ) -> Result<(), MessageError>
+    where
+        D: Driver<'a>,
+    {
+        if let Ok(msg_cbor) = self.serialize() {
+            for chunk in msg_cbor.chunks(USB_PACKET_SIZE) {
+                class.write_packet(chunk).await;
+            }
+            class.write_packet(&[]).await;
+            Ok(())
+        } else {
+            Err(MessageError::Cbor)
+        }
     }
 
-    pub async fn send_messages(messages: Vec<Message>) -> Result<(), MessageError> {
-        for msg in messages {
-            msg.send().await?;
+    pub async fn rx_from_server<'a, D>(
+        class: &mut CdcAcmClass<'a, D>,
+    ) -> Result<Message, MessageError>
+    where
+        D: Driver<'a>,
+    {
+        let mut packet_buf = [0u8; USB_PACKET_SIZE];
+        let mut msg_buf = Vec::with_capacity(USB_PACKET_SIZE);
+
+        while let Ok(n) = class.read_packet(&mut packet_buf).await {
+            msg_buf.push(packet_buf);
+            packet_buf.fill(0);
+
+            if n < USB_PACKET_SIZE {
+                // break out once we see a packet is not MAX SIZE (this means the message is complete)
+                break;
+            }
         }
 
-        Ok(())
+        let msg_buf = msg_buf.into_iter().flatten().collect::<Vec<_>>();
+
+        if let Ok(msg) = Message::deserialize(&msg_buf) {
+            Ok(msg)
+        } else {
+            // let msg = String::from_utf8_lossy(&msg_buf);
+            // if let Some(n) = msg.find('\0') {
+            //     cond_log!(warn!(
+            //         "Failed to deserialize message:\n\tData as String: {:?}",
+            //         msg.split_at(n).0
+            //     ));
+            // }
+            Err(MessageError::Cbor)
+        }
     }
 }
 

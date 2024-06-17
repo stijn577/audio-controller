@@ -18,20 +18,12 @@ def "gg build server" [] {
 
 def "gg client" [] {
     cd client
-    cargo r
+    print "Running client..."
+    cargo r -r -q
 }
 
 def "gg server" [] {
-    cd server
-    cargo r
+    print "Running server..."
+    cargo r -q --package server 
 }
 
-
-def "gg clean" [] {
-    cargo clean
-    cd client
-    cargo clean
-    cd ../server
-    cargo clean
-    
-}

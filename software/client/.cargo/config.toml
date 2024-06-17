@@ -1,5 +1,12 @@
 [target.'cfg(all(target_arch = "arm", target_os = "none"))']
-runner = "probe-rs run --chip STM32F401CCU6"
+runner = [
+    "probe-rs",
+    "run",
+    "--chip",
+    "STM32F401CCU6",
+    "--log-format",
+    "{[ {t:010} {L:bold}{F:white}:{l:white}]} {s}",
+]
 rustflags = [
     # LLD (shipped with the Rust toolchain) is used as the default linker
     "-C",

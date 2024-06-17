@@ -7,3 +7,4 @@ rustflags = [
 
 [watch]
 flags = ["-q", "-c", "-x"]
+

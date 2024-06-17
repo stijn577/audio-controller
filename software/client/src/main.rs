@@ -8,8 +8,8 @@ extern crate core;
 
 // defining our own modules
 mod error;
-mod usb;
 mod prelude;
+mod usb;
 mod utils;
 
 use defmt_rtt as _;
@@ -52,8 +52,6 @@ static USB_TX_CHANNEL: Channel<CriticalSectionRawMutex, Message, 5> = Channel::n
 // map the peripherals that need interrupt handlers
 bind_interrupts!(
     pub(crate) struct Irqs {
-        USART1 => usart::InterruptHandler<peripherals::USART1>;
-        USART6 => usart::InterruptHandler<peripherals::USART6>;
         OTG_FS => usb_otg::InterruptHandler<peripherals::USB_OTG_FS>;
     }
 );
@@ -75,7 +73,7 @@ async fn main(s: Spawner) {
 
     info!("Basics done!");
 
-    let mut ep_out_buffer = [0u8; 256];
+    let mut ep_out_buffer = [0u8; 1048];
 
     // let mut device_descriptor = [0; 256];
     let mut config_descriptor = [0; 256];
@@ -84,9 +82,6 @@ async fn main(s: Spawner) {
     let mut control_buf = [0; 64];
 
     let mut state = State::new();
-
-    // let allocator = usb_device::bus::UsbBusAllocator::new()
-    // let mut serial = usbd_serial::SerialPort::new(&)
 
     let (mut usb, mut class) = {
         let mut config = usb_otg::Config::default();
@@ -107,15 +102,14 @@ async fn main(s: Spawner) {
         config.product = Some("audio-controller");
         config.serial_number = Some("12345678");
 
-        config.device_class = 0xEF;
+        config.device_class = 0x02;
         config.device_sub_class = 0x02;
-        config.device_protocol = 0x01;
-        config.composite_with_iads = true;
+        config.device_protocol = 0x00;
+        // config.composite_with_iads = true;
 
         let mut builder = Builder::new(
             driver,
             config,
-            // &mut device_descriptor,
             &mut config_descriptor,
             &mut bos_descriptor,
             &mut msos_descriptor,
@@ -125,16 +119,6 @@ async fn main(s: Spawner) {
         builder.msos_descriptor(msos::windows_version::WIN10, 2);
 
         let class = CdcAcmClass::new(&mut builder, &mut state, 64);
-
-        // let msos_writer = builder.msos_writer();
-        // msos_writer.configuration(0);
-        // msos_writer.function(InterfaceNumber(0));
-        // msos_writer.function_feature(msos::CompatibleIdFeatureDescriptor::new("WINUSB", ""));
-        // msos_writer.function_feature(msos::RegistryPropertyFeatureDescriptor::new(
-        //     "DeviceInterfaceGUIDs",
-        //     msos::PropertyData::RegMultiSz(DEVICE_INTERFACE_GUIDS),
-        // ));
-
         let usb = builder.build();
 
         (usb, class)
@@ -148,9 +132,12 @@ async fn main(s: Spawner) {
 
     #[allow(unreachable_code)]
     let usb_rx_tx = async {
+        class.wait_connection().await;
+
+        info!("USB connected!");
+
         loop {
-            class.wait_connection().await;
-            info!("USB connected!");
+            Timer::after_millis(1000).await;
 
             match usb::usb_messaging(
                 &mut class,
@@ -176,13 +163,9 @@ async fn main(s: Spawner) {
 async fn blinky_task(mut led: Output<'static, peripherals::PC13>) {
     loop {
         led.set_high();
-        println!("LED off!");
-
         Timer::after_millis(1000).await;
 
         led.set_low();
-        println!("LED on!");
-
         Timer::after_millis(1000).await;
     }
 }
