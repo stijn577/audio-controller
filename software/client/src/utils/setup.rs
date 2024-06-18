@@ -13,7 +13,7 @@ static HEAP_ALLOCATOR: alloc_cortex_m::CortexMHeap = alloc_cortex_m::CortexMHeap
 #[allow(unsafe_code)]
 pub fn heap_setup() {
     let start = cortex_m_rt::heap_start() as usize;
-    let size = 64_000;
+    let size = 50_000;
     unsafe { HEAP_ALLOCATOR.init(start, size) }
 }
 

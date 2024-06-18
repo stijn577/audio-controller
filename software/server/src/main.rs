@@ -8,6 +8,7 @@ use tokio::time::sleep;
 use tokio::time::Duration;
 use tokio_serial::SerialPort;
 use tokio_serial::SerialPortBuilderExt;
+use tokio_serial::SerialStream;
 
 mod hardware_rx;
 mod os_commands;
@@ -15,6 +16,21 @@ mod os_commands;
 #[tokio::main]
 async fn main() -> anyhow::Result<!> {
     env_logger::init();
+
+    // let dev_info = nusb::list_devices()
+    //     .context("Failed to list devices")?
+    //     .find(|dev| dev.product_string() == Some("audio-controller"))
+    //     .context("Failed to find audio controller")?;
+
+    // let audio_controller = dev_info.open().context("Failed to open audio controller")?;
+    // let serial = audio_controller
+    //     .claim_interface(0)
+    //     .context("Failed to claim serial interface");
+    // let hid = audio_controller
+    //     .claim_interface(1)
+    //     .context("Failed to claim hid interface")?;
+
+    // Ok(loop {})
 
     let port = tokio_serial::available_ports()
         .context("Could not list ports!")?
@@ -24,14 +40,19 @@ async fn main() -> anyhow::Result<!> {
             dev
         });
 
-    let mut usb = tokio_serial::new("COM19", 115200)
+    let mut usb_cfg = tokio_serial::new("COM19", 115200)
         .baud_rate(115200)
         .data_bits(tokio_serial::DataBits::Eight)
         .flow_control(tokio_serial::FlowControl::None)
         .parity(tokio_serial::Parity::None)
-        .timeout(Duration::from_millis(1000))
-        .open_native_async()
-        .with_context(|| "Failed to open serial port")?;
+        .timeout(Duration::from_millis(1000));
+
+    // let mut usb = usb_cfg
+    //     .clone()
+    //     .open_native_async()
+    //     .context("Failed to open serial port")?;
+
+
 
     info!("Usb made");
 
@@ -40,31 +61,35 @@ async fn main() -> anyhow::Result<!> {
     info!("Message ready!");
 
     Ok(loop {
-        sleep(Duration::from_millis(1000)).await;
+        if let Ok(mut usb) = usb_cfg.clone().open_native_async() {
+            // wait for USB to be available to write
+            if (usb.writable().await).is_ok() {
+                if let Ok(n) = usb.try_write(&msg_cbor) {
+                    info!("Message sent!");
+                } else {
+                    warn!("Failed to write to serial port");
+                }
+            }
 
-        // wait for USB to be available to write
-        if (usb.writable().await).is_ok() {
-            if let Ok(n) = usb.try_write(&msg_cbor) {
-                info!("Message sent!");
-            } else {
-                warn!("Failed to write to serial port");
+            let mut buf = [0u8; 1024];
+            // usb.flush();
+            // info!("usb flushed, waiting for message!");
+
+            sleep(Duration::from_millis(1000)).await;
+
+            // wait for the USB to be available to read
+            if (usb.readable().await).is_ok() {
+                if let Ok(n) = usb.try_read(&mut buf) {
+                    info!("Message received: {:?}", Message::deserialize(&buf));
+                } else {
+                    warn!("Failed to read from serial port");
+                }
             }
         }
-
-        let mut buf = [0u8; 1024];
-        // usb.flush();
-        // info!("usb flushed, waiting for message!");
-
-        sleep(Duration::from_millis(1000)).await;
-
-        // wait for the USB to be available to read
-        if (usb.readable().await).is_ok() {
-            if let Ok(n) = usb.try_read(&mut buf) {
-                info!("Message received: {:?}", Message::deserialize(&buf));
-            } else {
-                warn!("Failed to read from serial port");
-            }
+        else {
+            warn!("Failed to open serial port");
         }
+        sleep(Duration::from_millis(1000)).await;
     })
 
     // if cfg!(target_os = "windows") {
@@ -107,3 +132,5 @@ async fn main() -> anyhow::Result<!> {
     // todo!("Linux implementation here")
     // }
 }
+
+pub async fn reconnect(mut usb: &mut SerialStream, usb_cfg: &dyn SerialPortBuilderExt) {}

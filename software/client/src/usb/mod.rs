@@ -1,37 +1,16 @@
-use alloc::string::String;
-use alloc::vec::{self, Vec};
+use defmt::info;
 use defmt::warn;
-use defmt::{info, println};
 use embassy_stm32::usb_otg::Driver;
 use embassy_stm32::usb_otg::Instance;
-use embassy_sync::blocking_mutex::raw::CriticalSectionRawMutex;
-use embassy_sync::blocking_mutex::raw::NoopRawMutex;
-use embassy_sync::channel::Receiver;
-use embassy_sync::channel::Sender;
-use embassy_time::Delay;
-use embassy_time::Timer;
 use embassy_usb::class::cdc_acm::CdcAcmClass;
+use embassy_usb::class::hid::HidWriter;
 use embassy_usb::driver::EndpointError;
-use serde::Serialize;
-use shared_data::action::Action;
 use shared_data::message::Message;
-
-use crate::USB_PACKET_SIZE;
-
-#[derive(thiserror_no_std::Error)]
-pub(crate) struct Disconnected {
-    #[source]
-    pub(crate) _source: EndpointError,
-}
-
-impl From<EndpointError> for Disconnected {
-    fn from(value: EndpointError) -> Self {
-        match value {
-            EndpointError::BufferOverflow => panic!("Buffer overflowed!"),
-            EndpointError::Disabled => Disconnected { _source: value },
-        }
-    }
-}
+use usbd_hid::descriptor::KeyboardReport;
+use usbd_hid::descriptor::KeyboardUsage;
+use usbd_hid::descriptor::MediaKey;
+use usbd_hid::descriptor::MediaKeyboardReport;
+use usbd_hid::descriptor::SerializedDescriptor;
 
 /// Asynchronously reads and writes messages over a USB connection.
 ///
@@ -75,18 +54,53 @@ impl From<EndpointError> for Disconnected {
 /// }
 /// ```
 ///
-pub(crate) async fn usb_messaging<'d, T: Instance + 'd>(
-    class: &mut CdcAcmClass<'d, Driver<'d, T>>,
-    usb_transmit_channel: Receiver<'static, CriticalSectionRawMutex, Message, 5>,
-    usb_received_channel: Sender<'static, CriticalSectionRawMutex, Message, 5>,
-) -> Result<(), EndpointError> {
+pub(crate) async fn usb_serial<'d, D>(
+    serial: &mut CdcAcmClass<'d, Driver<'d, D>>,
+) -> Result<(), EndpointError>
+where
+    D: Instance,
+{
     info!("Waiting to receive...");
-    let msg = Message::rx_from_server(class).await.unwrap();
-    info!("Message received!");
-
-    info!("Echoing message...");
-    msg.tx_to_server(class).await;
-    info!("Message echoed!");
+    if let Ok(msg) = Message::rx_from_server(serial).await {
+        info!("Message received! {:#?}", msg);
+        info!("Echoing message...");
+        if let Ok(_) = msg.tx_to_server(serial).await {
+            info!("Message echoed!");
+        } else {
+            warn!("Echo failed")
+        }
+    };
 
     Ok(())
+}
+
+pub(crate) async fn usb_hid<'d, D, const N: usize>(
+    hid: &mut HidWriter<'d, Driver<'d, D>, N>,
+) -> Result<(), EndpointError>
+where
+    D: Instance,
+{
+    info!("Writing keycodes!");
+
+    let report = MediaKeyboardReport {
+        usage_id: MediaKey::PlayPause.into(),
+    };
+
+
+    hid.write_serialize(&report).await
+}
+
+#[derive(thiserror_no_std::Error)]
+pub(crate) struct Disconnected {
+    #[source]
+    pub(crate) _source: EndpointError,
+}
+
+impl From<EndpointError> for Disconnected {
+    fn from(value: EndpointError) -> Self {
+        match value {
+            EndpointError::BufferOverflow => panic!("Buffer overflowed!"),
+            EndpointError::Disabled => Disconnected { _source: value },
+        }
+    }
 }
