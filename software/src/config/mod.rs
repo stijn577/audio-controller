@@ -15,6 +15,7 @@ pub struct BtnEntry {
     bitmap: Option<String>,
 }
 
+#[allow(unused)]
 #[derive(Debug, Clone)]
 pub struct Config {
     pub(crate) hw_btn_cfg: crate::config::hardware::HWBtnConfig,

@@ -1,8 +1,7 @@
 use defmt::warn;
 use embassy_stm32::{
     rcc::{
-        AHBPrescaler, APBPrescaler, Hse, HseMode, LsConfig, Pll, PllMul, PllPDiv, PllPreDiv,
-        PllQDiv, PllRDiv, PllSource, RtcClockSource, Sysclk,
+        AHBPrescaler, APBPrescaler, Hse, HseMode, Pll, PllMul, PllPDiv, PllPreDiv, PllQDiv, PllRDiv, PllSource, Sysclk
     },
     time::Hertz,
 };

@@ -4,7 +4,7 @@
 extern crate std;
 
 #[cfg(all(feature = "std", feature = "defmt"))]
-compile_error!("You can't use std and defmt at the same time");
+compile_error!("You can't use std and defmt features at the same time");
 
 extern crate alloc;
 

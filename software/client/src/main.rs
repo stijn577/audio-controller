@@ -14,12 +14,10 @@ mod utils;
 
 use defmt_rtt as _;
 use panic_probe as _;
+use shared_data::USB_PACKET_SIZE;
 
 use crate::utils::setup::*;
-use core::{
-    future::IntoFuture,
-    sync::atomic::{AtomicBool, Ordering},
-};
+use core::sync::atomic::{AtomicBool, Ordering};
 use defmt::{info, warn};
 use embassy_executor::Spawner;
 use embassy_futures::join::join;
@@ -30,18 +28,16 @@ use embassy_stm32::{
     usb_otg::{self, Driver},
     Config,
 };
-use embassy_sync::{blocking_mutex::raw::CriticalSectionRawMutex, channel::Channel};
 use embassy_time::Timer;
 use embassy_usb::{
     class::{
         cdc_acm::{self, CdcAcmClass},
         hid::{self, HidWriter},
     },
-    control::OutResponse,
     Builder, Handler,
 };
 use usb::usb_hid;
-use usbd_hid::descriptor::{KeyboardReport, MediaKeyboardReport, SerializedDescriptor};
+use usbd_hid::descriptor::{MediaKeyboardReport, SerializedDescriptor};
 
 //TODO: static bitmap manager to interact with SD card
 // ...
@@ -80,16 +76,13 @@ async fn main(s: Spawner) {
     // let mut device_descriptor = [0; 256];
     let mut config_descriptor = [0; 256];
     let mut bos_descriptor = [0; 256];
-    let mut msos_descriptor = [0; 256];
+    // let mut msos_descriptor = [0; 256];
     let mut control_buf = [0; 64];
 
     let mut serial_state = cdc_acm::State::new();
     let mut hid_state = hid::State::new();
-    // let mut media_hid_state = hid::State::new();
 
     let mut device_handler = MyDeviceHandler::new();
-
-    let _report_descriptors = [KeyboardReport::desc(), MediaKeyboardReport::desc()].concat();
 
     let (mut usb, mut serial, mut hid) = {
         let mut config = usb_otg::Config::default();
@@ -117,14 +110,14 @@ async fn main(s: Spawner) {
         config.device_protocol = 0x01;
         config.composite_with_iads = true;
 
-        config.max_packet_size_0 = 64;
+        config.max_packet_size_0 = (USB_PACKET_SIZE as usize).try_into().unwrap();
 
         let mut builder = Builder::new(
             driver,
             config,
             &mut config_descriptor,
             &mut bos_descriptor,
-            &mut msos_descriptor,
+            &mut [],
             &mut control_buf,
         );
 
@@ -136,16 +129,16 @@ async fn main(s: Spawner) {
         builder.handler(&mut device_handler);
 
         // config for hid keyboard
-        #[allow(unsafe_code)]
-        let key_hid_config = hid::Config {
+        let hid_config = hid::Config {
             report_descriptor: MediaKeyboardReport::desc(),
             request_handler: None,
             poll_ms: 60,
             max_packet_size: 8,
         };
+
         // register key hid member for composite class
         let hid: HidWriter<Driver<peripherals::USB_OTG_FS>, 8> =
-            HidWriter::new(&mut builder, &mut hid_state, key_hid_config);
+            HidWriter::new(&mut builder, &mut hid_state, hid_config);
 
         let usb = builder.build();
 

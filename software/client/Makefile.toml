@@ -34,5 +34,5 @@ dependencies = ["build"]
 command = "nu"
 args = [
     "-c",
-    "arm-none-eabi-objdump.exe --disassemble ../target/thumbv7em-none-eabihf/debug/client | save ./client.asm -f",
+    "arm-none-eabi-objdump.exe --disassemble ../target/thumbv7em-none-eabihf/release/client | save ./client.asm -f",
 ]

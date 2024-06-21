@@ -6,11 +6,8 @@ use embassy_usb::class::cdc_acm::CdcAcmClass;
 use embassy_usb::class::hid::HidWriter;
 use embassy_usb::driver::EndpointError;
 use shared_data::message::Message;
-use usbd_hid::descriptor::KeyboardReport;
-use usbd_hid::descriptor::KeyboardUsage;
 use usbd_hid::descriptor::MediaKey;
 use usbd_hid::descriptor::MediaKeyboardReport;
-use usbd_hid::descriptor::SerializedDescriptor;
 
 /// Asynchronously reads and writes messages over a USB connection.
 ///
@@ -85,7 +82,6 @@ where
     let report = MediaKeyboardReport {
         usage_id: MediaKey::PlayPause.into(),
     };
-
 
     hid.write_serialize(&report).await
 }

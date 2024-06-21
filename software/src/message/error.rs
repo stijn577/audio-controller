@@ -11,6 +11,7 @@ pub enum MessageError {
     CommandLaunch,
     CommandExitFailure,
     NoMatchingKey,
+    USBWriteFailure,
     Cbor,
 }
 

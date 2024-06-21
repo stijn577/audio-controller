@@ -40,6 +40,9 @@ flags = ["-q", "-c", "-x"]
 [env]
 DEFMT_LOG = "info"
 
+[profile.debug]
+release = true
+
 [profile.release]
 # Allows defmt to display log locations even in release
 debug = true

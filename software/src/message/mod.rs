@@ -125,9 +125,16 @@ impl Message {
     {
         if let Ok(msg_cbor) = self.serialize() {
             for chunk in msg_cbor.chunks(USB_PACKET_SIZE) {
-                class.write_packet(chunk).await;
+                class
+                    .write_packet(chunk)
+                    .await
+                    .map_err(|_| MessageError::USBWriteFailure)?;
             }
-            class.write_packet(&[]).await;
+            class
+                .write_packet(&[])
+                .await
+                .map_err(|_| MessageError::USBWriteFailure)?;
+
             Ok(())
         } else {
             Err(MessageError::Cbor)
