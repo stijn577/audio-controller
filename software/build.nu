@@ -22,9 +22,9 @@ def "gg client" [] {
     cargo r -r -q
 }
 
-def "gg server" [] {
+def "gg server" [com: string = "COM8"] {
     print "Running server..."
     cd ~/Documents/projects/audio-controller/software
-    cargo r -q --package server 
+    cargo r -q --package server -- $com
 }
 
