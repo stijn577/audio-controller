@@ -22,6 +22,7 @@ serde_cbor = { version = "0.11.2", features = ["alloc"] }
 log = "0.4.21"
 env_logger = "0.11.3"
 nusb = "0.1.9"
+futures-lite = "2.3.0"
 
 [dependencies.shared-data]
 version = "0.1.0"

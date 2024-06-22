@@ -1,5 +1,6 @@
 #![feature(never_type)]
 use anyhow::Context;
+use futures_lite::future::block_on;
 use log::info;
 use log::warn;
 use shared_data::{action::Action, message::Message};
@@ -17,20 +18,7 @@ mod os_commands;
 async fn main() -> anyhow::Result<!> {
     env_logger::init();
 
-    // let dev_info = nusb::list_devices()
-    //     .context("Failed to list devices")?
-    //     .find(|dev| dev.product_string() == Some("audio-controller"))
-    //     .context("Failed to find audio controller")?;
-
-    // let audio_controller = dev_info.open().context("Failed to open audio controller")?;
-    // let serial = audio_controller
-    //     .claim_interface(0)
-    //     .context("Failed to claim serial interface");
-    // let hid = audio_controller
-    //     .claim_interface(1)
-    //     .context("Failed to claim hid interface")?;
-
-    // Ok(loop {})
+    // let com = std::env::stdin();
 
     let port = tokio_serial::available_ports()
         .context("Could not list ports!")?
@@ -40,19 +28,12 @@ async fn main() -> anyhow::Result<!> {
             dev
         });
 
-    let mut usb_cfg = tokio_serial::new("COM19", 115200)
+    let mut usb_cfg = tokio_serial::new("COM8", 115200)
         .baud_rate(115200)
         .data_bits(tokio_serial::DataBits::Eight)
         .flow_control(tokio_serial::FlowControl::None)
         .parity(tokio_serial::Parity::None)
         .timeout(Duration::from_millis(1000));
-
-    // let mut usb = usb_cfg
-    //     .clone()
-    //     .open_native_async()
-    //     .context("Failed to open serial port")?;
-
-
 
     info!("Usb made");
 
@@ -85,8 +66,7 @@ async fn main() -> anyhow::Result<!> {
                     warn!("Failed to read from serial port");
                 }
             }
-        }
-        else {
+        } else {
             warn!("Failed to open serial port");
         }
         sleep(Duration::from_millis(1000)).await;
