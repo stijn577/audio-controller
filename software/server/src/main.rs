@@ -1,6 +1,6 @@
 #![feature(never_type)]
-use std::mem::MaybeUninit;
-
+use anyhow::Context;
+use futures_lite::future::block_on;
 use log::info;
 use rusb::Device;
 use rusb::DeviceDescriptor;
@@ -367,58 +367,24 @@ async fn main() -> anyhow::Result<()> {
 
 //     Ok(loop {})
 
-// let dev_info = nusb::list_devices()
-//     .context("Failed to list devices")?
-//     .find(|dev| dev.product_string() == Some("audio-controller"))
-//     .context("Failed to find audio controller")?;
+    // let com = std::env::stdin();
 
-// info!("Found device: {:#?}", dev_info);
+    let port = tokio_serial::available_ports()
+        .context("Could not list ports!")?
+        .into_iter()
+        .map(|dev| {
+            info!("Found port: {:#?}", dev);
+            dev
+        });
 
-// let audio_controller = dev_info.open().context("Failed to open audio controller")?;
-// let serial = audio_controller
-//     .claim_interface(0)
-//     .context("Failed to claim serial interface")?;
+    let mut usb_cfg = tokio_serial::new("COM8", 115200)
+        .baud_rate(115200)
+        .data_bits(tokio_serial::DataBits::Eight)
+        .flow_control(tokio_serial::FlowControl::None)
+        .parity(tokio_serial::Parity::None)
+        .timeout(Duration::from_millis(1000));
 
-// let data = Message::Action(Action::Command(vec![String::from("firefox.exe")]));
-// let data = data.serialize().context("Failed to serialize message")?;
-
-// Ok(loop {
-//     info!("Sending packet");
-//     serial
-//         .control_out(ControlOut {
-//             control_type: ControlType::Class,
-//             recipient: Recipient::Device,
-//             request: 0x81,
-//             value: 0x9999,
-//             index: 0x9999,
-//             data: &data,
-//         })
-//         .await;
-
-//     sleep(Duration::from_millis(1000)).await;
-// })
-
-// let port = tokio_serial::available_ports()
-//     .context("Could not list ports!")?
-//     .into_iter()
-//     .map(|dev| {
-//         info!("Found port: {:#?}", dev);
-//         dev
-//     });
-
-// let mut usb_cfg = tokio_serial::new("COM19", 115200)
-//     .baud_rate(115200)
-//     .data_bits(tokio_serial::DataBits::Eight)
-//     .flow_control(tokio_serial::FlowControl::None)
-//     .parity(tokio_serial::Parity::None)
-//     .TIMEOUT(Duration::from_millis(1000));
-
-// let mut usb = usb_cfg
-//     .clone()
-//     .open_native_async()
-//     .context("Failed to open serial port")?;
-
-// info!("Usb made");
+    info!("Usb made");
 
 // let msg = Message::Action(Action::Command(vec![String::from("firefox.exe")]));
 // let msg_cbor = msg.serialize().context("Failed to serialize")?;
@@ -441,20 +407,59 @@ async fn main() -> anyhow::Result<()> {
 
 //         sleep(Duration::from_millis(1000)).await;
 
-//         // wait for the USB to be available to read
-//         if (usb.readable().await).is_ok() {
-//             if let Ok(n) = usb.try_read(&mut buf) {
-//                 info!("Message received: {:?}", Message::deserialize(&buf));
-//             } else {
-//                 warn!("Failed to read from serial port");
-//             }
-//         }
-//     }
-//     else {
-//         warn!("Failed to open serial port");
-//     }
-//     sleep(Duration::from_millis(1000)).await;
-// })
-// }
+            // wait for the USB to be available to read
+            if (usb.readable().await).is_ok() {
+                if let Ok(n) = usb.try_read(&mut buf) {
+                    info!("Message received: {:?}", Message::deserialize(&buf));
+                } else {
+                    warn!("Failed to read from serial port");
+                }
+            }
+        } else {
+            warn!("Failed to open serial port");
+        }
+        sleep(Duration::from_millis(1000)).await;
+    })
 
-// pub async fn reconnect(mut usb: &mut SerialStream, usb_cfg: &dyn SerialPortBuilderExt) {}
+    // if cfg!(target_os = "windows") {
+    // TODO: receive slot messages from controller, instead of hardcoding here
+    //
+    // _audio_control().await;
+    //
+    // let msg = Message::ConfigEntry(ConfigEntry::Command(0, vec!["spotify.exe".to_string()]));
+    // let out = msg.serialize().context("Failed to serialize")?;
+    // let out = Message::deserialize(&out).context("Failed to deserialize")?;
+    // info!("{:?}", out);
+    // out.execute_entry()
+    //     .await
+    // .context("Failed to launch application")?;
+    //
+    // let msg = Message::ConfigEntry(ConfigEntry::Command(0, vec!["firefox.exe".to_string()]));
+    // let out = msg.serialize().context("Failed to serialize")?;
+    // let out = Message::deserialize(&out).context("Failed to deserialize")?;
+    // println!("{:?}", out);
+    //
+    // out.execute_entry()
+    //     .await
+    //     .context("Failed to launch application")?;
+    //
+    // let thread0 = tokio::spawn(process(Message::));
+    // let thread1 = tokio::spawn(process(Message::));
+    // let thread2 = tokio::spawn(process(Message::));
+    // let thread3 = tokio::spawn(process(Message::));
+    // let thread4 = tokio::spawn(process(Message::));
+    // let thread5 = tokio::spawn(process(Message::));
+    // let _ = join!(thread0, thread1, thread2, thread3, thread4, thread5);
+    //
+    // let x = tokio::spawn(keypress(Button::Slot3));
+    // let thread6c = tokio::spawn(handle_message(Message::AudioLevels());
+    //
+    // let launch_discord_fut = tokio::spawn(handle_message(Message::App(App::Slot0)));
+    // let launch_spotify_fut = tokio::spawn(handle_message(Message::App(App::Slot1)));
+    // let launch_firefox_fut = tokio::spawn(handle_message(Message::App(App::Slot2)));
+    // } else {
+    // todo!("Linux implementation here")
+    // }
+}
+
+pub async fn reconnect(mut usb: &mut SerialStream, usb_cfg: &dyn SerialPortBuilderExt) {}
