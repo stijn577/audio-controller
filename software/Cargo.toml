@@ -9,9 +9,8 @@ serde = { version = "1.0.203", default-features = false, features = [
     "alloc",
     "derive",
 ] }
-serde_cbor = { version = "0.11.2", default-features = false, features = [
-    "alloc",
-] }
+ciborium = { version = "0.2.2", default-features = false }
+
 # one of these is for std, the other for no_std -> optional = true
 thiserror = { version = "1.0.61", optional = true }
 thiserror-no-std = { version = "2.0.2" }
@@ -34,7 +33,7 @@ heapless = { version = "0.8.0", features = ["serde"] }
 embedded-graphics = { version = "0.8.1", optional = true }
 tinybmp = "0.6.0"
 
-embassy-usb = { version = "0.2.0",optional = true}
+embassy-usb = { version = "0.2.0", optional = true }
 
 [workspace]
 members = ["client", "server"]

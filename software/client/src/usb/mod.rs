@@ -9,6 +9,8 @@ use shared_data::message::Message;
 use usbd_hid::descriptor::MediaKey;
 use usbd_hid::descriptor::MediaKeyboardReport;
 
+pub(crate) mod device_handler;
+
 /// Asynchronously reads and writes messages over a USB connection.
 ///
 /// This function continuously reads packets from the USB connection and writes them to the provided receiver.
@@ -58,15 +60,18 @@ where
     D: Instance,
 {
     info!("Waiting to receive...");
-    if let Ok(msg) = Message::rx_from_server(serial).await {
-        info!("Message received! {:#?}", msg);
-        info!("Echoing message...");
-        if let Ok(_) = msg.tx_to_server(serial).await {
-            info!("Message echoed!");
-        } else {
-            warn!("Echo failed")
+    match Message::rx_from_server(serial).await {
+        Ok(msg) => {
+            info!("Message received! {:#?}", msg);
+            info!("Echoing message...");
+            if let Ok(_) = msg.tx_to_server(serial).await {
+                info!("Message echoed!");
+            } else {
+                warn!("Echo failed")
+            }
         }
-    };
+        Err(e) => warn!("{:?}", e),
+    }
 
     Ok(())
 }

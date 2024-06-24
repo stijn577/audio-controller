@@ -1,31 +1,42 @@
+use core::fmt::Debug;
+
 #[cfg(feature = "std")]
 use crate::{message::error::MessageError, _SHELL, _SHELL_EXEC};
-use alloc::vec::Vec;
+use alloc::fmt::format;
+use alloc::vec;
+use alloc::{string::String, vec::Vec};
 use serde::{Deserialize, Serialize};
 
-#[cfg_attr(feature="defmt", derive(defmt::Format))]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum Action {
-    Command(Vec<alloc::string::String>),
-    KeyPress(Vec<u8>),
+    /// Vec allows for combo commands (launching multiple entries with one tap)
+    Command(u8),
+    KbdHid(Vec<u8>),
+    MediaHid(Vec<u16>),
 }
 
 impl Default for Action {
     fn default() -> Self {
-        Self::Command(Vec::new())
+        Self::Command(0xFF)
     }
 }
 
 #[cfg(feature = "std")]
 impl Action {
-    pub(crate) async fn execute_entry(&self) -> Result<(), MessageError> {
+    pub(crate) async fn execute_entry(self) -> Result<(), MessageError> {
         match self {
-            Action::Command(args) => self.execute_command(args).await,
-            Action::KeyPress(keycodes) => self.execute_keystrokes(keycodes).await,
+            Self::KbdHid(ref vec) => self.execute_keystrokes(&vec).await?,
+            Self::Command(idx) => self.execute_command(idx).await?,
+            _ => unreachable!("MediaHid actions should be ran on the client, not on the server."),
         }
+        todo!()
     }
 
-    async fn execute_command(&self, args: &[alloc::string::String]) -> Result<(), MessageError> {
+    async fn execute_command(&self, idx: u8) -> Result<(), MessageError> {
+        // TODO: change this to parse from config file
+        let args = &[String::from("firefox.exe")];
+
         match std::process::Command::new(_SHELL)
             .arg(_SHELL_EXEC)
             .args(args)

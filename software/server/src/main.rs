@@ -1,7 +1,10 @@
 #![feature(never_type)]
+use std::io::Write;
+
 use anyhow::Context;
 use log::{info, warn};
 use shared_data::action::Action;
+use shared_data::config::btn::BtnConfig;
 use shared_data::message::Message;
 use tokio::io::stdin;
 use tokio::io::AsyncReadExt;
@@ -40,8 +43,9 @@ async fn main() -> anyhow::Result<!> {
 
     info!("Usb made");
 
-    let msg = Message::Action(Action::Command(vec![String::from("firefox.exe")]));
+    let msg = Message::BtnPress(Action::default());
     let msg_cbor = msg.serialize().context("Failed to serialize")?;
+
     info!("Message ready!");
 
     Ok(loop {
@@ -58,8 +62,6 @@ async fn main() -> anyhow::Result<!> {
             let mut buf = [0u8; 1024];
             // usb.flush();
             // info!("usb flushed, waiting for message!");
-
-            sleep(Duration::from_millis(1000)).await;
 
             //wait for the USB to be available to read
             if (usb.readable().await).is_ok() {

@@ -14,11 +14,12 @@ mod utils;
 
 use defmt_rtt as _;
 use panic_probe as _;
-use shared_data::USB_PACKET_SIZE;
+use shared_data::{N_HWB, N_SWB, USB_PACKET_SIZE};
 
 use crate::utils::setup::*;
 use core::sync::atomic::{AtomicBool, Ordering};
-use defmt::{info, warn};
+use defmt::info;
+use defmt::warn;
 use embassy_executor::Spawner;
 use embassy_futures::join::join;
 use embassy_stm32::{
@@ -36,13 +37,12 @@ use embassy_usb::{
     },
     Builder, Handler,
 };
+use shared_data::config::btn::BtnConfig;
 use usb::usb_hid;
 use usbd_hid::descriptor::{MediaKeyboardReport, SerializedDescriptor};
 
-//TODO: static bitmap manager to interact with SD card
-// ...
-// static HARDWARE_BUTTONS: HWBtnConfig = HWBtnConfig::new(hl::Vec::new());
-// static SOFTWARE_BUTTONS: SWBtnConfig = SWBtnConfig::new(hl::Vec::new());
+static HARDWARE_BUTTONS: BtnConfig<{ N_HWB }> = BtnConfig::new(heapless::Vec::new());
+static SOFTWARE_BUTTONS: BtnConfig<{ N_SWB }> = BtnConfig::new(heapless::Vec::new());
 // static SLIDERS: SliderConfig = SliderConfig::new(hl::Vec::new());
 
 // const USB_PACKET_SIZE: usize = 64;
@@ -145,22 +145,22 @@ async fn main(s: Spawner) {
         (usb, serial, hid)
     };
 
-    let usb_run = usb.run();
-
-    let key_hid_fut = async {
-        // loop {
-        Timer::after_millis(1000).await;
-        if let Ok(_) = usb_hid(&mut hid).await {
-            info!("Success")
-        } else {
-            warn!("Failed to send message to server")
-        }
-        // }
-    };
-
     let led = Output::new(pp.PC13, Level::High, Speed::Low);
 
     info!("Pins set!");
+
+    let usb_run = usb.run();
+
+    let key_hid_fut = async {
+        loop {
+            Timer::after_millis(1000).await;
+            // if let Ok(_) = usb_hid(&mut hid).await {
+            //     info!("Success")
+            // } else {
+            //     warn!("Failed to send message to server")
+            // }
+        }
+    };
 
     #[allow(unreachable_code)]
     let serial_fut = async {
@@ -169,8 +169,6 @@ async fn main(s: Spawner) {
         info!("USB connected!");
 
         loop {
-            Timer::after_millis(1000).await;
-
             match usb::usb_serial(
                 &mut serial,
                 // USB_TX_CHANNEL.receiver(),
@@ -181,6 +179,7 @@ async fn main(s: Spawner) {
                 Ok(_) => (),
                 Err(_) => warn!("Failed to send message to server"),
             }
+            Timer::after_millis(1000).await;
         }
     };
 

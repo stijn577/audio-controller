@@ -45,9 +45,8 @@ serde = { version = "1.0.203", default-features = false, features = [
     "alloc",
     "derive",
 ] }
-serde_cbor = { version = "0.11.2", default-features = false, features = [
-    "alloc",
-] }
+ciborium = { version = "0.2.2", default-features = false }
+
 
 # logging and panic handling
 defmt = { version = "0.3.5", features = ["alloc"] }
@@ -59,10 +58,10 @@ heapless = { version = "0.8.0", features = ["defmt-03", "serde"] }
 usbd-hid = { version = "0.7.0", features = ["defmt"] }
 
 [dependencies.shared-data]
+features = ["defmt", "embassy"]
+
 version = "0.1.0"
 path = ".."
-features = ["defmt", "logging", "embassy"]
-
 [[bin]]
 name = "client"
 harness = false

@@ -1,42 +1,42 @@
 use alloc::{boxed::Box, string::String, vec::Vec};
 use serde::{Deserialize, Serialize};
 
-use crate::{action::Action, message::Message};
+use crate::{action::Action, message::Message, N_HWB, N_SLIDERS, N_SWB};
 
 pub mod bitmap;
-pub mod hardware;
+pub mod btn;
 pub mod slider;
-pub mod software;
 
-#[cfg_attr(feature="defmt", derive(defmt::Format))]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct BtnEntry {
     exec: Action,
     bitmap: Option<String>,
 }
 
-#[allow(unused)]
-#[derive(Debug, Clone)]
+#[cfg_attr(feature = "defmt", derive(defmt::Format))]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Config {
-    pub(crate) hw_btn_cfg: crate::config::hardware::HWBtnConfig,
-    pub(crate) sw_btn_cfg: crate::config::software::SWBtnConfig,
-    pub(crate) slider_cfg: crate::config::slider::SliderConfig,
-    pub(crate) bitmap_cfg: crate::config::bitmap::BMPConfig,
+    pub(crate) hw_btn_cfg: crate::config::btn::BtnConfig<{ N_HWB }>,
+    pub(crate) sw_btn_cfg: crate::config::btn::BtnConfig<{ N_SWB }>,
+    pub(crate) slider_cfg: crate::config::slider::SliderConfig<{ N_SLIDERS }>,
+    // pub(crate) bitmap_cfg: crate::config::bitmap::BMPConfig,
 }
 
 impl Config {
     pub async fn from_config(&mut self) -> Vec<Message> {
-        let mut vec = Vec::with_capacity(4);
+        todo!()
+        //     let mut vec = Vec::with_capacity(4);
 
-        vec[0] = Message::SWBtnConfig(Box::new(self.sw_btn_cfg.clone()));
-        vec[1] = Message::HWBtnConfig(Box::new(self.hw_btn_cfg.clone()));
-        vec[2] = Message::SliderConfig(Box::new(self.slider_cfg.clone()));
+        //     vec[0] = Message::SWBtnConfig(Box::new(self.sw_btn_cfg.clone()));
+        //     vec[1] = Message::HWBtnConfig(Box::new(self.hw_btn_cfg.clone()));
+        //     vec[2] = Message::SliderConfig(Box::new(self.slider_cfg.clone()));
 
-        for (name, data) in self.bitmap_cfg.clone() {
-            vec.push(Message::BitMap(name, data));
-        }
+        //     for (name, data) in self.bitmap_cfg.clone() {
+        //         vec.push(Message::BitMap(name, data));
+        //     }
 
-        vec
+        //     vec
     }
 }
 

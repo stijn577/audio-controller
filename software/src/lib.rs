@@ -1,10 +1,11 @@
 #![no_std]
+#![feature(debug_closure_helpers)]
 
 #[cfg(feature = "std")]
 extern crate std;
 
-#[cfg(all(feature = "std", feature = "defmt"))]
-compile_error!("You can't use std and defmt features at the same time");
+// #[cfg(all(feature = "std", feature = "defmt"))]
+// compile_error!("You can't use std and defmt features at the same time");
 
 extern crate alloc;
 
@@ -30,13 +31,11 @@ const _SHELL_EXEC: &str = "-c";
 pub const USB_PACKET_SIZE: usize = 64;
 /// The number of hardware buttons.
 pub const N_HWB: usize = 8;
-/// The number of different screens
-pub const N_SCREENS: usize = 3;
-/// The number of software buttons per screen.
-pub const N_SWB_PER_SCREEN: usize = 6;
+/// The amout of software button entries.
+pub const N_SWB: usize = u8::MAX as usize;
 /// The amount of sliders on the controller.
 pub const N_SLIDERS: usize = 5;
-/// The amount of bitmaps that can be shown on sliders
-pub const N_SLIDERS_BMPS: usize = N_SLIDERS;
-/// The amount of bitmaps on the controller.
-pub const N_BITMAPS: usize = N_SWB_PER_SCREEN * N_SCREENS + N_SLIDERS_BMPS;
+// /// The amount of bitmaps that can be shown on sliders
+// pub const N_SLIDERS_BMPS: usize = N_SLIDERS;
+// /// The amount of bitmaps on the controller.
+// pub const N_BITMAPS: usize = N_SWB_PER_SCREEN * N_SCREENS + N_SLIDERS_BMPS;
