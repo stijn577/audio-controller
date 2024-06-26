@@ -17,6 +17,7 @@ pub mod config;
 pub mod message;
 mod prelude;
 
+
 #[cfg(target_os = "windows")]
 const _SHELL: &str = "powershell";
 #[cfg(target_os = "windows")]

@@ -2,8 +2,6 @@ use core::fmt::Debug;
 
 #[cfg(feature = "std")]
 use crate::{message::error::MessageError, _SHELL, _SHELL_EXEC};
-use alloc::fmt::format;
-use alloc::vec;
 use alloc::{string::String, vec::Vec};
 use serde::{Deserialize, Serialize};
 
@@ -13,7 +11,7 @@ pub enum Action {
     /// Vec allows for combo commands (launching multiple entries with one tap)
     Command(u8),
     KbdHid(Vec<u8>),
-    MediaHid(Vec<u16>),
+    MediaHid(u16),
 }
 
 impl Default for Action {
@@ -23,17 +21,19 @@ impl Default for Action {
 }
 
 #[cfg(feature = "std")]
+
 impl Action {
-    pub(crate) async fn execute_entry(self) -> Result<(), MessageError> {
+    pub async fn perform(self) -> Result<(), MessageError> {
         match self {
-            Self::KbdHid(ref vec) => self.execute_keystrokes(&vec).await?,
+            Self::KbdHid(ref vec) => self.emulate_keystrokes(&vec).await?,
             Self::Command(idx) => self.execute_command(idx).await?,
             _ => unreachable!("MediaHid actions should be ran on the client, not on the server."),
         }
-        todo!()
+
+        Ok(())
     }
 
-    async fn execute_command(&self, idx: u8) -> Result<(), MessageError> {
+    async fn execute_command(&self, _idx: u8) -> Result<(), MessageError> {
         // TODO: change this to parse from config file
         let args = &[String::from("firefox.exe")];
 
@@ -50,7 +50,7 @@ impl Action {
         }
     }
 
-    async fn execute_keystrokes(&self, keycodes: &[u8]) -> Result<(), MessageError> {
+    async fn emulate_keystrokes(&self, keycodes: &[u8]) -> Result<(), MessageError> {
         let mut keys = alloc::vec::Vec::new();
 
         // first parse all keys to see if they are valid before doing anything

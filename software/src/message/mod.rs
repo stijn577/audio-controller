@@ -1,8 +1,7 @@
-use crate::config::btn::BtnConfig;
 use crate::config::Config;
-use crate::{action::Action, audiolevels::AudioLvls, config::slider::SliderConfig};
-use crate::{prelude::*, USB_PACKET_SIZE};
-use alloc::{boxed::Box, string::String, vec::Vec};
+use crate::prelude::*;
+use crate::{action::Action, audiolevels::AudioLvls};
+use alloc::vec::Vec;
 use error::MessageError;
 use serde::{Deserialize, Serialize};
 
@@ -29,29 +28,6 @@ pub enum Message {
     EditHWBtn(u8, Action),
     BtnPress(Action),
     AudioLvls(AudioLvls),
-    // / Request from the audio-controller to load the current configuration from PC host memory config files (static between sessions).
-    // RequestConfig,
-    // / Reply from the audio-controller to confirm a message is delivered and handled.
-    // / The bitmaps that are transmitted are very large, it's not possible to store them all in RAM on the audio-controller.
-    // / For this reason, these replies are used to tell the PC that the controller is ready to receive the next message.
-    // SendNext,
-    // / Might be unecessary
-    // Finished,
-    // / Sends a software button configuration to/from the audio-controller.
-    // SWBtnConfig(Box<SWBtnConfig>),
-    // HWBtnConfig(Box<HWBtnConfig>),
-    // / Sends a hardware button configuration to/from the audio-controller.
-    // / Sends a slider configuration.
-    // SliderConfig(Box<SliderConfig>),
-    // / Sends a bitmap image hash of the pixels, if these match with a hash on the controller, the new bitmap doesn't need to be sent
-    // / Leaving a lot more CPU cycles for the controller to do other stuff.
-    // BitmapHash(String, String),
-    // / Sends a bitmap image with the specified name and data.
-    // BitMap(String, RawBmpData),
-    // / Sends an action message from the controller to the PC in preparation to be executed.
-    // Action(Action),
-    // / Sends audio levels message from the controller to the PC. So the volumes of processes can be adjusted.
-    // AudioLvls(AudioLvls),
 }
 
 impl Message {
@@ -83,7 +59,7 @@ impl Message {
         cond_log!(debug!("serialize"));
         // let buf = Vec::new();
         let mut buf = Vec::new();
-        ciborium::into_writer(self, &mut buf).map_err(|e| MessageError::Cbor)?;
+        ciborium::into_writer(self, &mut buf).map_err(|_| MessageError::Cbor)?;
         Ok(buf)
         // Ok(buf)
         // serde_cbor::to_vec(&self).map_err(|_| MessageError::Cbor)
@@ -113,9 +89,9 @@ impl Message {
     /// # Returns
     ///
     /// This method returns a `Result` containing the deserialized message.
-    pub fn deserialize(data: &[u8]) -> Result<Self, MessageError> {
+    pub fn deserialize(data: &[u8]) -> Result<Message, MessageError> {
         cond_log!(debug!("deserialize"));
-        ciborium::from_reader(data).map_err(|e| MessageError::Cbor)
+        ciborium::from_reader(data).map_err(|_| MessageError::Cbor)
         // let data: Vec<u8> = data.iter().cloned().filter(|&b| b != 0).collect();
         // serde_cbor::from_slice(&data).map_err(|_| MessageError::Cbor)
     }
