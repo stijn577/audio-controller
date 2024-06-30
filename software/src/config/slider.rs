@@ -1,4 +1,4 @@
-use alloc::string::String;
+use alloc::{string::String, vec};
 use serde::{Deserialize, Serialize};
 
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
@@ -6,10 +6,12 @@ use serde::{Deserialize, Serialize};
 pub struct SliderConfig<const N: usize>(heapless::Vec<Slider, N>);
 
 impl<const N: usize> SliderConfig<N> {
-    pub const fn new(config: heapless::Vec<Slider, N>) -> Self {
-        Self(config)
+    pub const fn new() -> Self {
+        Self(heapless::Vec::new())
     }
 }
+
+unsafe impl<const N: usize> Sync for SliderConfig<N> {}
 
 impl<const N: usize> Default for SliderConfig<N> {
     fn default() -> Self {
@@ -25,7 +27,7 @@ pub struct Slider {
 }
 
 impl Slider {
-    pub fn new(host_process: String) -> Self {
+    pub const fn new(host_process: String) -> Self {
         Self { host_process }
     }
 }

@@ -14,11 +14,15 @@ mod utils;
 
 use alloc::fmt::format;
 use defmt_rtt as _;
+use embassy_sync::blocking_mutex::CriticalSectionMutex;
+use embassy_sync::mutex::Mutex;
 use panic_probe as _;
-use shared_data::{N_HWB, N_SWB, USB_PACKET_SIZE};
+use shared_data::config::slider::SliderConfig;
+use shared_data::{N_HWB, N_SLIDERS, N_SWB, SERIAL_PACKET_SIZE};
 use usb::device_handler::MyDeviceHandler;
 
 use crate::utils::setup::*;
+use core::cell::RefCell;
 use core::fmt::Write;
 use core::sync::atomic::{AtomicBool, Ordering};
 use defmt::info;
@@ -41,16 +45,18 @@ use embassy_usb::{
     Builder, Handler,
 };
 use shared_data::config::btn::BtnConfig;
-use usb::usb_hid;
+use usb::{usb_hid, Buffers, States, USBCompositeDevice};
 use usbd_hid::descriptor::{MediaKeyboardReport, SerializedDescriptor};
 
-static HARDWARE_BUTTONS: BtnConfig<{ N_HWB }> = BtnConfig::new(heapless::Vec::new());
-static SOFTWARE_BUTTONS: BtnConfig<{ N_SWB }> = BtnConfig::new(heapless::Vec::new());
-// static SLIDERS: SliderConfig = SliderConfig::new(hl::Vec::new());
+static mut HW_BTN_CFG: CriticalSectionMutex<RefCell<BtnConfig<N_HWB>>> = CriticalSectionMutex::new(RefCell::new(BtnConfig::new()));
+static mut SW_BTN_CFG: CriticalSectionMutex<RefCell<BtnConfig<N_SWB>>> = CriticalSectionMutex::new(RefCell::new(BtnConfig::new()));
+static mut SLIDER_CFG: CriticalSectionMutex<RefCell<SliderConfig<N_SLIDERS>>> = CriticalSectionMutex::new(RefCell::new(SliderConfig::new()));
 
 // const USB_PACKET_SIZE: usize = 64;
 // static USB_RX_CHANNEL: Channel<CriticalSectionRawMutex, Message, 5> = Channel::new();
 // static USB_TX_CHANNEL: Channel<CriticalSectionRawMutex, Message, 5> = Channel::new();
+
+// static mut CONFIG: shared_data::config::Config = shared_data::config::Config::new();
 
 // map the peripherals that need interrupt handlers
 bind_interrupts!(
@@ -74,121 +80,84 @@ async fn main(s: Spawner) {
 
     info!("Basics done!");
 
-    let mut ep_out_buffer = [0u8; 256];
+    let mut buffers = Buffers::default();
+    let mut states = States::default();
 
-    // let mut device_descriptor = [0; 256];
-    let mut config_descriptor = [0; 256];
-    let mut bos_descriptor = [0; 256];
-    // let mut msos_descriptor = [0; 256];
-    let mut control_buf = [0; 64];
+    let mut driver_cfg = usb_otg::Config::default();
+    driver_cfg.vbus_detection = false;
 
-    let mut serial_state = cdc_acm::State::new();
-    let mut hid_state = hid::State::new();
+    let mut builder_cfg = embassy_usb::Config::new(0x0577, 0x0577);
+    // identifiers
+    builder_cfg.manufacturer = Some("stijn577");
+    builder_cfg.product = Some("audio-controller");
+    builder_cfg.serial_number = Some("stijn577");
+    // composite device settings
+    builder_cfg.device_class = 0xEF;
+    builder_cfg.device_sub_class = 0x02;
+    builder_cfg.device_protocol = 0x01;
+    builder_cfg.composite_with_iads = true;
 
-    let mut device_handler = MyDeviceHandler::new();
-
-    let (mut usb, mut serial, mut hid) = {
-        let mut config = usb_otg::Config::default();
-        config.vbus_detection = false;
-
-        let driver = Driver::new_fs(
-            pp.USB_OTG_FS,
-            Irqs,
-            pp.PA12,
-            pp.PA11,
-            &mut ep_out_buffer,
-            config,
-        );
-
-        let mut config = embassy_usb::Config::new(0x0577, 0x0577);
-
-        // identifiers
-        config.manufacturer = Some("stijn577");
-        config.product = Some("audio-controller");
-        config.serial_number = Some("stijn577");
-
-        // composite device settings
-        config.device_class = 0xEF;
-        config.device_sub_class = 0x02;
-        config.device_protocol = 0x01;
-        config.composite_with_iads = true;
-
-        config.max_packet_size_0 = (USB_PACKET_SIZE as usize).try_into().unwrap();
-
-        let mut builder = Builder::new(
-            driver,
-            config,
-            &mut config_descriptor,
-            &mut bos_descriptor,
-            &mut [],
-            &mut control_buf,
-        );
-
-        // builder.msos_descriptor(msos::windows_version::WIN10, 2);
-
-        // register serial port member for composite class
-        let serial = CdcAcmClass::new(&mut builder, &mut serial_state, 64);
-
-        builder.handler(&mut device_handler);
-
-        // config for hid keyboard
-        let hid_config = hid::Config {
-            report_descriptor: MediaKeyboardReport::desc(),
-            request_handler: None,
-            poll_ms: 60,
-            max_packet_size: 8,
-        };
-
-        // register key hid member for composite class
-        let hid: HidWriter<Driver<peripherals::USB_OTG_FS>, 8> =
-            HidWriter::new(&mut builder, &mut hid_state, hid_config);
-
-        let usb = builder.build();
-
-        (usb, serial, hid)
+    let hid_cfg = hid::Config {
+        report_descriptor: MediaKeyboardReport::desc(),
+        request_handler: None,
+        poll_ms: 60,
+        max_packet_size: 8,
     };
+
+    let (usb_man,mut  usb_dev) = USBCompositeDevice::new(
+        (pp.USB_OTG_FS, pp.PA12, pp.PA11),
+        &mut buffers,
+        &mut states,
+        driver_cfg,
+        builder_cfg,
+        hid_cfg,
+    );
 
     let led = Output::new(pp.PC13, Level::High, Speed::Low);
 
     info!("Pins set!");
 
-    let usb_run = usb.run();
+    let serial_fut = usb_man.serial_run();
+    let usb_fut = usb_dev.run();
 
-    let key_hid_fut = async {
-        loop {
-            Timer::after_millis(1000).await;
-            // if let Ok(_) = usb_hid(&mut hid).await {
-            //     info!("Success")
-            // } else {
-            //     warn!("Failed to send message to server")
-            // }
-        }
-    };
+    // let usb_run = usb.run();
 
-    #[allow(unreachable_code)]
-    let serial_fut = async {
-        serial.wait_connection().await;
+    // let key_hid_fut = async {
+    //     loop {
+    //         Timer::after_millis(1000).await;
+    //         // if let Ok(_) = usb_hid(&mut hid).await {
+    //         //     info!("Success")
+    //         // } else {
+    //         //     warn!("Failed to send message to server")
+    //         // }
+    //     }
+    // };
 
-        info!("USB connected!");
+    // #[allow(unreachable_code)]
+    // let serial_fut = async {
+    //     serial.wait_connection().await;
 
-        loop {
-            match usb::usb_serial(
-                &mut serial,
-                // USB_TX_CHANNEL.receiver(),
-                // USB_RX_CHANNEL.sender(),
-            )
-            .await
-            {
-                Ok(_) => (),
-                Err(_) => warn!("Failed to send message to server"),
-            }
-            Timer::after_millis(1000).await;
-        }
-    };
+    //     info!("USB connected!");
+
+    //     loop {
+    //         match usb::usb_serial(
+    //             &mut serial,
+    //             // USB_TX_CHANNEL.receiver(),
+    //             // USB_RX_CHANNEL.sender(),
+    //         )
+    //         .await
+    //         {
+    //             Ok(_) => (),
+    //             Err(_) => warn!("Failed to send message to server"),
+    //         }
+    //         Timer::after_millis(1000).await;
+    //     }
+    // };
 
     s.spawn(blinky_task(led)).ok();
 
-    join(usb_run, join(serial_fut, key_hid_fut)).await;
+    // serial_fut.await;
+    join(serial_fut, usb_fut).await;
 
     unreachable!("REACHED END OF MAIN!");
 }

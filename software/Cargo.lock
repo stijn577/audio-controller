@@ -1581,6 +1581,7 @@ version = "0.1.0"
 dependencies = [
  "ciborium",
  "defmt",
+ "embassy-stm32",
  "embassy-usb",
  "embedded-graphics",
  "heapless 0.8.0",

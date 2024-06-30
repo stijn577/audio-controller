@@ -1,11 +1,16 @@
 use crate::config::Config;
-use crate::prelude::*;
 use crate::{action::Action, audiolevels::AudioLvls};
+use crate::{prelude::*, SERIAL_PACKET_SIZE};
 use alloc::vec::Vec;
 use error::MessageError;
 use serde::{Deserialize, Serialize};
 
 pub mod error;
+
+#[cfg(feature = "embassy")]
+pub mod usb_nostd;
+#[cfg(feature = "std")]
+pub mod usb_std;
 
 /// Enum representing different types of messages that can be sent or received.
 ///
@@ -94,74 +99,6 @@ impl Message {
         ciborium::from_reader(data).map_err(|_| MessageError::Cbor)
         // let data: Vec<u8> = data.iter().cloned().filter(|&b| b != 0).collect();
         // serde_cbor::from_slice(&data).map_err(|_| MessageError::Cbor)
-    }
-}
-
-#[cfg(feature = "embassy")]
-impl Message {
-    pub async fn tx_to_server<'a, D>(
-        self,
-        class: &mut CdcAcmClass<'a, D>,
-    ) -> Result<(), MessageError>
-    where
-        D: Driver<'a>,
-    {
-        if let Ok(msg_cbor) = self.serialize() {
-            for chunk in msg_cbor.chunks(USB_PACKET_SIZE) {
-                class
-                    .write_packet(chunk)
-                    .await
-                    .map_err(|_| MessageError::USBWriteFailure)?;
-            }
-            class
-                .write_packet(&[])
-                .await
-                .map_err(|_| MessageError::USBWriteFailure)?;
-
-            Ok(())
-        } else {
-            Err(MessageError::Cbor)
-        }
-    }
-
-    pub async fn rx_from_server<'a, D>(
-        class: &mut CdcAcmClass<'a, D>,
-    ) -> Result<Message, MessageError>
-    where
-        D: Driver<'a>,
-    {
-        let mut packet_buf = [0u8; USB_PACKET_SIZE];
-        let mut msg_buf = Vec::new();
-
-        let mut counter = 0;
-        let mut n = 0;
-
-        while let Ok(len) = class.read_packet(&mut packet_buf).await {
-            msg_buf.push(packet_buf);
-            packet_buf.fill(0);
-
-            if len < USB_PACKET_SIZE {
-                n = len;
-                // break out once we see a packet is not MAX SIZE (this means the message is complete)
-                break;
-            }
-            counter += 1;
-        }
-
-        let msg_buf = msg_buf.into_iter().flatten().collect::<Vec<_>>();
-
-        if let Ok(msg) = Message::deserialize(&msg_buf[..]) {
-            Ok(msg)
-        } else {
-            // let msg = String::from_utf8_lossy(&msg_buf);
-            // if let Some(n) = msg.find('\0') {
-            //     cond_log!(warn!(
-            //         "Failed to deserialize message:\n\tData as String: {:?}",
-            //         msg.split_at(n).0
-            //     ));
-            // }
-            Err(MessageError::Cbor)
-        }
     }
 }
 

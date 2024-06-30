@@ -1,84 +1,141 @@
+use core::mem::MaybeUninit;
+
 use defmt::info;
 use defmt::warn;
+use device_handler::MyDeviceHandler;
+use embassy_futures::join::join;
+use embassy_stm32::peripherals as pp;
+use embassy_stm32::usb_otg;
 use embassy_stm32::usb_otg::Driver;
 use embassy_stm32::usb_otg::Instance;
+use embassy_sync::blocking_mutex::raw::NoopRawMutex;
+use embassy_sync::channel::Receiver;
+use embassy_sync::channel::Sender;
+use embassy_usb::class::cdc_acm;
 use embassy_usb::class::cdc_acm::CdcAcmClass;
+use embassy_usb::class::hid;
 use embassy_usb::class::hid::HidWriter;
 use embassy_usb::driver::EndpointError;
+use embassy_usb::Builder;
+use embassy_usb::UsbDevice;
+use shared_data::action::Action;
+use shared_data::message::usb_nostd::MessageReceiver;
+use shared_data::message::usb_nostd::MessageSender;
 use shared_data::message::Message;
+use shared_data::HID_PACKET_SIZE;
+use shared_data::SERIAL_PACKET_SIZE;
 use usbd_hid::descriptor::MediaKey;
 use usbd_hid::descriptor::MediaKeyboardReport;
+use usbd_hid::descriptor::SerializedDescriptor;
+
+use crate::Irqs;
 
 pub(crate) mod device_handler;
 
-/// Asynchronously reads and writes messages over a USB connection.
-///
-/// This function continuously reads packets from the USB connection and writes them to the provided receiver.
-/// It then reads messages from the provided receiver and writes them to the USB connection.
-///
-/// # Arguments
-///
-/// * `class` - A mutable reference to a CDC ACM class instance.
-/// * `rx` - A receiver channel to receive messages.
-/// * `tx` - A sender channel to send messages.
-///
-/// # Returns
-///
-/// A `Result` containing an error if the USB connection is disconnected, or `Ok(())` if the messages are successfully sent and received.
-///
-/// # Panics
-///
-/// Panics if the `EndpointError::BufferOverflow` is encountered.
-///
-/// # Examples
-///
-/// ```
-/// use crate::usb_messaging;
-///
-/// #[tokio::main]
-/// async fn main() {
-///     // Initialize USB and CDC ACM class instances
-///     let usb_instance = /* initialize USB instance */;
-///     let cdc_acm_class = /* initialize CDC ACM class instance */;
-///
-///     // Create sender and receiver channels
-///     let (tx, rx) = embassy_sync::channel::bounded(5);
-///
-///     // Start reading and writing messages
-///     if let Ok(()) = usb_messaging(&mut cdc_acm_class, rx, tx).await {
-///         println!("Messages sent and received successfully");
-///     } else {
-///         println!("Error sending and receiving messages");
-///     }
-/// }
-/// ```
-///
-pub(crate) async fn usb_serial<'d, D>(
-    serial: &mut CdcAcmClass<'d, Driver<'d, D>>,
-) -> Result<(), EndpointError>
+pub struct Buffers {
+    ep_out_buffer: [u8; 256],
+    config_descriptor: [u8; 256],
+    bos_descriptor: [u8; 256],
+    control_buf: [u8; 64],
+}
+
+impl Default for Buffers {
+    fn default() -> Self {
+        Self {
+            ep_out_buffer: [0u8; 256],
+            config_descriptor: [0u8; 256],
+            bos_descriptor: [0u8; 256],
+            control_buf: [0u8; 64],
+        }
+    }
+}
+
+#[derive(Default)]
+pub struct States<'d> {
+    serial_state: cdc_acm::State<'d>,
+    hid_state: hid::State<'d>,
+}
+
+pub struct USBCompositeDevice<'d> {
+    serial: CdcAcmClass<'d, Driver<'d, pp::USB_OTG_FS>>,
+    hid: HidWriter<'d, Driver<'d, pp::USB_OTG_FS>, { HID_PACKET_SIZE as usize }>,
+}
+
+impl<'d> USBCompositeDevice<'d> {
+    pub(crate) fn new(
+        pins: (pp::USB_OTG_FS, pp::PA12, pp::PA11),
+        buffers: &'d mut Buffers,
+        states: &'d mut States<'d>,
+        driver_cfg: usb_otg::Config,
+        builder_cfg: embassy_usb::Config<'d>,
+        hid_cfg: hid::Config<'d>,
+    ) -> (USBCompositeDevice<'d>, UsbDevice<'d, Driver<'d, pp::USB_OTG_FS>>) {
+        // #[allow(unsafe_code)]
+        // let mut usb_composite: USBCompositeDevice<'d> =
+        //     unsafe { MaybeUninit::uninit().assume_init() };
+        // usb_composite.device_handler = MyDeviceHandler::new();
+
+        let driver = Driver::new_fs(pins.0, Irqs, pins.1, pins.2, &mut buffers.ep_out_buffer, driver_cfg);
+
+        let mut builder = Builder::new(
+            driver,
+            builder_cfg,
+            &mut buffers.config_descriptor,
+            &mut buffers.bos_descriptor,
+            &mut [],
+            &mut buffers.control_buf,
+        );
+
+        // builder.handler(&mut usb_composite.device_handler);
+
+        let serial = CdcAcmClass::new(&mut builder, &mut states.serial_state, SERIAL_PACKET_SIZE);
+        let hid = HidWriter::new(&mut builder, &mut states.hid_state, hid_cfg);
+
+        let usb_composite = Self { serial, hid };
+
+        (usb_composite, builder.build())
+    }
+
+    pub(crate) async fn serial_run(mut self) -> ! {
+        self.serial.wait_connection().await;
+
+        let (mut tx, mut rx) = self.serial.split();
+
+        loop {
+            let msg = rx.receive_message().await;
+
+            if let Ok(msg) = msg {
+                info!("serial: {:?}", msg);
+                tx.send_message(msg).await;
+            } else {
+                info!("No message received");
+            }
+        }
+    }
+}
+
+pub(crate) async fn usb_serial<'d, D>(serial: &mut CdcAcmClass<'d, Driver<'d, D>>) -> Result<(), EndpointError>
 where
     D: Instance,
 {
-    info!("Waiting to receive...");
-    match Message::rx_from_server(serial).await {
-        Ok(msg) => {
-            info!("Message received! {:#?}", msg);
-            info!("Echoing message...");
-            if let Ok(_) = msg.tx_to_server(serial).await {
-                info!("Message echoed!");
-            } else {
-                warn!("Echo failed")
-            }
-        }
-        Err(e) => warn!("{:?}", e),
-    }
+    // info!("Waiting to receive...");
+    // match Message::rx_from_server(serial).await {
+    //     Ok(msg) => {
+    //         info!("Message received! {:#?}", msg);
+    //         info!("Echoing message...");
+    //         if let Ok(_) = msg.tx_to_server(serial).await {
+    //             info!("Message echoed!");
+    //         } else {
+    //             warn!("Echo failed")
+    //         }
+    //     }
+    //     Err(e) => warn!("{:?}", e),
+    // }
 
     Ok(())
 }
 
-pub(crate) async fn usb_hid<'d, D, const N: usize>(
-    hid: &mut HidWriter<'d, Driver<'d, D>, N>,
-) -> Result<(), EndpointError>
+pub(crate) async fn usb_hid<'d, D, const N: usize>(hid: &mut HidWriter<'d, Driver<'d, D>, N>) -> Result<(), EndpointError>
 where
     D: Instance,
 {

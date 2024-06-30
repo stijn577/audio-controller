@@ -16,7 +16,7 @@ pub enum Action {
 
 impl Default for Action {
     fn default() -> Self {
-        Self::Command(0xFF)
+        Self::Command(0x00)
     }
 }
 

@@ -11,8 +11,10 @@ pub struct BtnConfig<const N: usize>(heapless::Vec<Action, N>);
 //     }
 // }
 
+unsafe impl<const N: usize> Sync for BtnConfig<N> {}
+
 impl<const N: usize> BtnConfig<N> {
-    pub const fn new(config: heapless::Vec<Action, N>) -> Self {
-        Self(config)
+    pub const fn new() -> Self {
+        Self(heapless::Vec::new())
     }
 }

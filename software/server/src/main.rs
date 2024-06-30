@@ -33,16 +33,15 @@ async fn main() -> anyhow::Result<()> {
 pub async fn bleh_task() {}
 
 pub async fn usb_task(com: &str) -> anyhow::Result<()> {
-    let tep = tokio_serial::available_ports()
-        .context("Could not list ports!")?
-        .into_iter()
-        .map(|dev| {
-            info!("Found port: {:#?}", dev);
-            dev
-        });
+    let tep = tokio_serial::available_ports().context("Could not list ports!")?.into_iter().map(|dev| {
+        info!("Found port: {:#?}", dev);
+        dev
+    });
 
     let msg = Message::BtnPress(Action::default());
     let msg_cbor = msg.serialize().context("Failed to serialize")?;
+    info!("{:?}", msg_cbor);
+
 
     info!("Message ready!");
 

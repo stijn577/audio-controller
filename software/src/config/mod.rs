@@ -1,5 +1,7 @@
 use alloc::{string::String, vec::Vec};
+use btn::BtnConfig;
 use serde::{Deserialize, Serialize};
+use slider::SliderConfig;
 
 use crate::{action::Action, message::Message, N_HWB, N_SLIDERS, N_SWB};
 
@@ -17,13 +19,21 @@ pub struct BtnEntry {
 #[cfg_attr(feature = "defmt", derive(defmt::Format))]
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Config {
-    pub(crate) hw_btn_cfg: crate::config::btn::BtnConfig<{ N_HWB }>,
-    pub(crate) sw_btn_cfg: crate::config::btn::BtnConfig<{ N_SWB }>,
-    pub(crate) slider_cfg: crate::config::slider::SliderConfig<{ N_SLIDERS }>,
+    pub(crate) hw_btn_cfg: BtnConfig<{ N_HWB }>,
+    pub(crate) sw_btn_cfg: BtnConfig<{ N_SWB }>,
+    pub(crate) slider_cfg: SliderConfig<{ N_SLIDERS }>,
     // pub(crate) bitmap_cfg: crate::config::bitmap::BMPConfig,
 }
 
 impl Config {
+    pub const fn new() -> Self {
+        Self {
+            hw_btn_cfg: BtnConfig::new(),
+            sw_btn_cfg: BtnConfig::new(),
+            slider_cfg: SliderConfig::new(),
+        }
+    }
+
     pub async fn from_config(&mut self) -> Vec<Message> {
         todo!()
         //     let mut vec = Vec::with_capacity(4);
